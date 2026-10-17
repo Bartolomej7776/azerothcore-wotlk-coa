@@ -37,6 +37,17 @@ class IntegrationTests(unittest.TestCase):
         self.assertEqual(values, generated)
         self.assertNotIn("`acore_world`.", result)
 
+    def test_teleport_import_stops_on_foreign_ids_before_any_upsert(self):
+        source = (EXPORTS / "Gametele.sql").read_text(encoding="utf-8-sig")
+        result, _ = prepare.teleport_sql(source)
+        guard = result.index("INSERT INTO `manastorm_tele_guard`")
+        self.assertLess(guard, result.index("INSERT INTO `game_tele`"))
+        self.assertIn("CHECK (`foreign_teleports` = 0)", result)
+        owners = result[result.index("INSERT INTO `manastorm_tele_owner`"):guard]
+        self.assertIn("(2038, 'Manastorm_SFK_RETHILGORE_A')", owners)
+        self.assertIn("(2038, 'UWES_SFK_RETHILGORE_A')", owners)
+        self.assertIn("(2103, 'Manastorm_OpenWorld_Marisadu''Paige')", owners)
+
     def test_world_preserves_rows_without_destructive_ddl(self):
         source = (EXPORTS / "ManastormWorldDBExport-RUNTHIS.sql").read_text(encoding="utf-8-sig")
         result, count = prepare.world_sql(source)

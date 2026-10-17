@@ -8,6 +8,8 @@ import re
 
 HERE = Path(__file__).resolve().parent
 REPAIR = HERE.parents[1] / "data/sql/db-world/updates/zz_manastorm_link_affix_eligibility.sql"
+MODULE_SQL = HERE.parents[1] / "data/sql"
+TELEPORT_TUPLE = r"\(\s*(\d+)\s*,(?:\s*-?[\d.]+\s*,){5}\s*'((?:[^'\\]|\\.|'')*)'\s*\)"
 
 
 def world_sql(source):
@@ -58,20 +60,58 @@ def world_sql(source):
     return "\n".join(result) + "\n", count
 
 
+def module_teleports():
+    teleports = set()
+    for path in sorted(MODULE_SQL.rglob("*.sql")):
+        for statement in re.findall(r"INSERT\s+(?:IGNORE\s+)?INTO\s+`game_tele`[^;]*", path.read_text(encoding="utf-8-sig")):
+            for teleport_id, name in re.findall(TELEPORT_TUPLE, statement):
+                teleports.add((int(teleport_id), name))
+    return teleports
+
+
+def teleport_guard_sql(owners):
+    ids = ", ".join(str(teleport_id) for teleport_id in sorted({teleport_id for teleport_id, _ in owners}))
+    rows = ", ".join(f"({teleport_id}, '{name}')" for teleport_id, name in sorted(owners))
+    return [
+        "DROP TEMPORARY TABLE IF EXISTS `manastorm_tele_owner`, `manastorm_tele_conflict`, `manastorm_tele_guard`;",
+        "CREATE TEMPORARY TABLE `manastorm_tele_owner` SELECT `id`, `name` FROM `game_tele` LIMIT 0;",
+        f"INSERT INTO `manastorm_tele_owner` (`id`, `name`) VALUES {rows};",
+        "CREATE TEMPORARY TABLE `manastorm_tele_conflict` SELECT `t`.`id`, `t`.`name` FROM `game_tele` `t` "
+        "LEFT JOIN `manastorm_tele_owner` `o` ON `o`.`id` = `t`.`id` AND `o`.`name` = `t`.`name` "
+        f"WHERE `t`.`id` IN ({ids}) AND `o`.`id` IS NULL;",
+        "SELECT `id` AS `foreign_teleport_id`, `name` AS `foreign_teleport_name` FROM `manastorm_tele_conflict`;",
+        "CREATE TEMPORARY TABLE `manastorm_tele_guard` (`foreign_teleports` INT NOT NULL, "
+        "CONSTRAINT `manastorm_teleport_ids_free` CHECK (`foreign_teleports` = 0));",
+        "INSERT INTO `manastorm_tele_guard` SELECT COUNT(*) FROM `manastorm_tele_conflict`;",
+    ]
+
+
 def teleport_sql(source):
-    result = ["-- REVIEW ONLY: overwrites overlapping teleport values with the authored snapshot.",
+    result = ["-- Imports the authored teleports. Rows already holding an authored id are overwritten only",
+              "-- when they carry the authored name or the name the module SQL gave that id. Any other",
+              "-- teleport on those ids is listed and violates `manastorm_teleport_ids_free` before any",
+              "-- change; run with the mysql client (stops at the first error).",
               "-- Run in the intended world database AFTER upstream and module SQL.",
               "SET NAMES utf8mb4;"]
-    count = 0
+    upserts = []
+    owners = set()
     pattern = r"^INSERT INTO `acore_world`\.`game_tele` (\([^\n]+?\)) VALUES (.*);$"
     for match in re.finditer(pattern, source, re.M):
         columns, values = match.groups()
+        authored = re.fullmatch(TELEPORT_TUPLE, values)
+        if not authored:
+            raise ValueError(f"Unrecognized teleport tuple: {values}")
+        owners.add((int(authored[1]), authored[2]))
         names = re.findall(r"`([^`]+)`", columns)
         updates = ", ".join(f"`{name}` = VALUES(`{name}`)" for name in names if name != "id")
-        result.append(f"INSERT INTO `game_tele` {columns} VALUES {values} ON DUPLICATE KEY UPDATE {updates};")
-        count += 1
-    if count != 163 or count != len(re.findall(r"^INSERT INTO ", source, re.M)):
+        upserts.append(f"INSERT INTO `game_tele` {columns} VALUES {values} ON DUPLICATE KEY UPDATE {updates};")
+    count = len(upserts)
+    if count != 163 or count != len(re.findall(r"^INSERT INTO ", source, re.M)) or len(owners) != count:
         raise ValueError("Expected all 163 authored teleports")
+    authored_ids = {teleport_id for teleport_id, _ in owners}
+    owners |= {teleport for teleport in module_teleports() if teleport[0] in authored_ids}
+    result += teleport_guard_sql(owners) + upserts
+    result.append("DROP TEMPORARY TABLE `manastorm_tele_owner`, `manastorm_tele_conflict`, `manastorm_tele_guard`;")
     return "\n".join(result) + "\n", count
 
 

@@ -43,9 +43,13 @@ or exhaustive encounter/Mode 1 acceptance.
    ```
 
    The generator only writes review files; it never connects to a database.
-5. Review overlapping teleport IDs and target-only enabled routes/brackets, then
-   import `01_game_tele_REVIEW.sql` followed by `02_manastorm_world_REVIEW.sql`
-   into `acore_world`. These are manual post-install inputs, not automatic updates.
+5. Review target-only enabled routes/brackets, then import `01_game_tele_REVIEW.sql`
+   followed by `02_manastorm_world_REVIEW.sql` into `acore_world` with the `mysql`
+   client, which stops at the first error. The teleport import checks its own IDs:
+   it overwrites only rows carrying the authored name or the name the module SQL gave
+   that ID. Any other teleport on those IDs is listed as `foreign_teleport_id` and the
+   import stops on `manastorm_teleport_ids_free` before changing anything; move that
+   teleport, then rerun. These are manual post-install inputs, not automatic updates.
    They preserve all 163 authored teleport tuples and 135197 world row tuples.
    The final world import repairs link/route/affix eligibility bits. Do not replay
    older foundation/policy files afterward: they can overwrite authored tuning.
@@ -82,7 +86,8 @@ must pass; do not disable validation to force installation.
 - Three exported unlock-message source-metadata columns are added only if absent.
 - Linked rows gain RouteCreature and AffixEligible without changing other flags
   or enabled states. Eligibility does not force an affix roll on every creature.
-- Target-only rows remain; review collisions before importing into an existing PTR.
+- Target-only rows remain. Teleport IDs held by a foreign teleport stop the import
+  before any change.
 - MySQL backslash string escaping is required; do not use NO_BACKSLASH_ESCAPES.
 - No accounts, character history, balances or loadouts are imported.
 
