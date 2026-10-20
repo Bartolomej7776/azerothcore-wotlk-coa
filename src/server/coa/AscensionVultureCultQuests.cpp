@@ -203,7 +203,7 @@ public:
         return CanUseMask(player);
     }
 
-    void BuildClientFlags(Player const* target, uint16& dynFlags, uint32& /*goFlags*/) override
+    void BuildClientFlags(Player const* target, uint16& dynFlags, uint32&) override
     {
         if (!CanUseMask(target))
             dynFlags |= GO_DYNFLAG_LO_NO_INTERACT;
