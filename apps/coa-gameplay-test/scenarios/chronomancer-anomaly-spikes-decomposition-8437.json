@@ -1,0 +1,58 @@
+{
+  "schema": 1,
+  "name": "chronomancer-anomaly-spikes-decomposition-8437",
+  "contract": [
+    "Anomaly Spikes rank two 504886 is a 15 percent periodic-damage proc. Decomposition 800856 ticks",
+    "every 4 seconds; with eight separate targets and at least six ticks each, a missing proc has",
+    "probability below 0.05 percent. Any 503826 damage proves Decomposition ticks can trigger it."
+  ],
+  "timeout_ms": 60000,
+  "players": [
+    {
+      "id": "chronomancer",
+      "race": 1,
+      "class": 22,
+      "level": 80,
+      "spell_hit_rating": 10000
+    }
+  ],
+  "creatures": [
+    { "id": "a", "owner": "chronomancer", "entry": 36, "faction": 14, "level": 80, "health": 1000000, "distance": 3 },
+    { "id": "b", "owner": "chronomancer", "entry": 36, "faction": 14, "level": 80, "health": 1000000, "distance": 5 },
+    { "id": "c", "owner": "chronomancer", "entry": 36, "faction": 14, "level": 80, "health": 1000000, "distance": 7 },
+    { "id": "d", "owner": "chronomancer", "entry": 36, "faction": 14, "level": 80, "health": 1000000, "distance": 9 },
+    { "id": "e", "owner": "chronomancer", "entry": 36, "faction": 14, "level": 80, "health": 1000000, "distance": 11 },
+    { "id": "f", "owner": "chronomancer", "entry": 36, "faction": 14, "level": 80, "health": 1000000, "distance": 13 },
+    { "id": "g", "owner": "chronomancer", "entry": 36, "faction": 14, "level": 80, "health": 1000000, "distance": 15 },
+    { "id": "h", "owner": "chronomancer", "entry": 36, "faction": 14, "level": 80, "health": 1000000, "distance": 17 }
+  ],
+  "steps": [
+    { "action": "wait", "label": "Let spawn AI settle", "ms": 2000 },
+    { "action": "learn", "actor": "chronomancer", "spell": 504886 },
+    { "action": "learn", "actor": "chronomancer", "spell": 800856 },
+    { "action": "set_power", "actor": "chronomancer", "power": 0, "value": 2000 },
+    { "action": "cast", "actor": "chronomancer", "spell": 800856, "target": "a" },
+    { "action": "wait", "ms": 1600 },
+    { "action": "set_power", "actor": "chronomancer", "power": 0, "value": 2000 },
+    { "action": "cast", "actor": "chronomancer", "spell": 800856, "target": "b" },
+    { "action": "wait", "ms": 1600 },
+    { "action": "set_power", "actor": "chronomancer", "power": 0, "value": 2000 },
+    { "action": "cast", "actor": "chronomancer", "spell": 800856, "target": "c" },
+    { "action": "wait", "ms": 1600 },
+    { "action": "set_power", "actor": "chronomancer", "power": 0, "value": 2000 },
+    { "action": "cast", "actor": "chronomancer", "spell": 800856, "target": "d" },
+    { "action": "wait", "ms": 1600 },
+    { "action": "set_power", "actor": "chronomancer", "power": 0, "value": 2000 },
+    { "action": "cast", "actor": "chronomancer", "spell": 800856, "target": "e" },
+    { "action": "wait", "ms": 1600 },
+    { "action": "set_power", "actor": "chronomancer", "power": 0, "value": 2000 },
+    { "action": "cast", "actor": "chronomancer", "spell": 800856, "target": "f" },
+    { "action": "wait", "ms": 1600 },
+    { "action": "set_power", "actor": "chronomancer", "power": 0, "value": 2000 },
+    { "action": "cast", "actor": "chronomancer", "spell": 800856, "target": "g" },
+    { "action": "wait", "ms": 1600 },
+    { "action": "set_power", "actor": "chronomancer", "power": 0, "value": 2000 },
+    { "action": "cast", "actor": "chronomancer", "spell": 800856, "target": "h" },
+    { "action": "assert", "label": "A Decomposition tick triggered Anomaly Spikes", "metric": "spell_damage_count", "actor": "chronomancer", "spell": 503826, "min": 1, "within_ms": 20000 }
+  ]
+}

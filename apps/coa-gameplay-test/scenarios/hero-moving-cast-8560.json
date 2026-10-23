@@ -1,0 +1,71 @@
+{
+  "schema": 1,
+  "name": "hero-moving-cast-8560",
+  "contract": [
+    "Cauterizing Fire 271205 is a 1.5 s cast with the movement interrupt flag and no allow-while-moving",
+    "attribute. Starting the cast and then moving must not let it complete: the server must refuse",
+    "the cast and deal no damage. This separates the reported client-side cast from server behavior."
+  ],
+  "timeout_ms": 30000,
+  "players": [
+    {
+      "id": "hero",
+      "race": 1,
+      "class": 10,
+      "level": 20
+    }
+  ],
+  "creatures": [
+    {
+      "id": "target",
+      "owner": "hero",
+      "entry": 36,
+      "faction": 14,
+      "level": 20,
+      "health": 100000,
+      "distance": 20
+    }
+  ],
+  "steps": [
+    {
+      "action": "wait",
+      "label": "Let spawn AI settle",
+      "ms": 1000
+    },
+    {
+      "action": "learn",
+      "actor": "hero",
+      "spell": 271205
+    },
+    {
+      "action": "cast",
+      "label": "Start the Cauterizing Fire cast",
+      "actor": "hero",
+      "spell": 271205,
+      "target": "target"
+    },
+    {
+      "action": "set_moving",
+      "actor": "hero",
+      "enabled": true
+    },
+    {
+      "action": "assert",
+      "label": "Moving interrupted the cast",
+      "metric": "cast_failure",
+      "actor": "hero",
+      "spell": 271205,
+      "min": 1,
+      "within_ms": 2500
+    },
+    {
+      "action": "assert",
+      "label": "No Cauterizing Fire damage landed",
+      "metric": "spell_damage_count",
+      "actor": "hero",
+      "spell": 271205,
+      "max": 0,
+      "within_ms": 2500
+    }
+  ]
+}
