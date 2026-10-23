@@ -1095,6 +1095,14 @@ void ApplyAscensionClassMechanics(SpellInfo* spellInfo)
     if (spellInfo->Id == 707188)
         spellInfo->Effects[EFFECT_1].ApplyAuraName = SPELL_AURA_DUMMY;
 
+    if (spellInfo->Id == 892101)
+    {
+        spellInfo->Effects[EFFECT_0].BasePoints = 12;
+        spellInfo->Effects[EFFECT_1].BasePoints = 12;
+        spellInfo->Effects[EFFECT_0].RealPointsPerLevel = 1.3924f;
+        spellInfo->Effects[EFFECT_1].RealPointsPerLevel = 1.3924f;
+    }
+
     ApplyAscensionClassMechanics19To25(spellInfo);
     ApplyAscensionBarbarianSpellChanges(spellInfo);
     ApplyAscensionWarcraftRebornWarriorContracts(spellInfo);
