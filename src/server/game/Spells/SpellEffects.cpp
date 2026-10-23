@@ -6659,6 +6659,9 @@ void Spell::SummonGuardian(uint32 i, uint32 entry, SummonPropertiesEntry const* 
         // xinef: set calculated level
         summon->SetLevel(summonLevel);
 
+        if (m_spellInfo->Id == 520588)
+            summon->SetReactState(REACT_DEFENSIVE);
+
         // if summonLevel changed, set stats for calculated level
         if (summonLevel != caster->GetLevel())
         {
