@@ -4113,9 +4113,11 @@ private:
       SPELL_TOOLTIP_FIELD};
   static constexpr std::size_t SPELL_WIRE_DESCRIPTION = 1;
   static constexpr std::size_t SPELL_WIRE_TOOLTIP = 3;
+  static constexpr uint32 SPELL_CATEGORY_FIELD = 1;
   static constexpr uint32 SPELL_CASTER_AURA_SPELL_FIELD = 24;
   static constexpr uint32 SPELL_EXCLUDE_CASTER_AURA_SPELL_FIELD = 26;
   static constexpr uint32 SPELL_CAST_TIME_INDEX_FIELD = 28;
+  static constexpr uint32 SPELL_CATEGORY_RECOVERY_TIME_FIELD = 30;
   static constexpr uint32 SPELL_INTERRUPT_FLAGS_FIELD = 31;
   static constexpr uint32 SPELL_FAMILY_NAME_FIELD = 208;
   static constexpr std::array<uint32, 18> RANGED_PREPARATION_CLIENT_SPELLS = {
@@ -4999,6 +5001,12 @@ private:
     }
     if (info->Id == AscensionSunCleric::Dawn)
       row.Values[4] = info->Attributes;
+    if (info->Id == 805027 ||
+        (info->Id >= 807938 && info->Id <= 807941))
+    {
+      row.Values[SPELL_WIRE_SLOT(SPELL_CATEGORY_FIELD)] = 0;
+      row.Values[SPELL_WIRE_SLOT(SPELL_CATEGORY_RECOVERY_TIME_FIELD)] = 0;
+    }
     if (IsChromaticShardRank(info->Id))
       row.Values[SPELL_WIRE_SLOT(SPELL_INTERRUPT_FLAGS_FIELD)] &= ~uint32(SPELL_INTERRUPT_FLAG_MOVEMENT);
 
@@ -5074,7 +5082,8 @@ private:
     std::unordered_set<uint32> descriptionIds;
     for (uint32 const spellId : RANGED_PREPARATION_CLIENT_SPELLS)
       Ascension::ClientSpellPatches::Instance().Register(spellId);
-    for (uint32 const spellId : {801292u, 501836u, 501837u, 501838u, 501839u, 501840u, 574346u, 567543u, 567544u})
+    for (uint32 const spellId : {801292u, 501836u, 501837u, 501838u, 501839u, 501840u, 574346u, 567543u, 567544u,
+        805027u, 807938u, 807939u, 807940u, 807941u})
       Ascension::ClientSpellPatches::Instance().Register(spellId);
     std::unordered_set<uint32> requested = Ascension::ClientSpellPatches::Instance().GetIds(true);
     for (auto const& tier : blacksmithingTiers)
