@@ -23,6 +23,10 @@ void ApplyContracts(SpellInfo* info)
         info->AttributesCu |= SPELL_ATTR0_CU_AURA_CANNOT_BE_SAVED;
     if (id == 800624)
         info->AttributesEx &= ~SPELL_ATTR1_NO_THREAT;
+    if (id == 804752)
+        info->Effects[EFFECT_0].RadiusEntry = sSpellRadiusStore.LookupEntry(13);
+    if (id == 800654)
+        info->Effects[EFFECT_0].RadiusEntry = sSpellRadiusStore.LookupEntry(18);
     if (id == Rejuvenating)
         for (auto& effect : info->Effects)
             if (effect.IsAura())

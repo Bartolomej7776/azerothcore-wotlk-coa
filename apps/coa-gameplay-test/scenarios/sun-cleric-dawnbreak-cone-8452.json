@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "name": "sun-cleric-dawnbreak-cone-8452",
+  "contract": [
+    "Dawnbreak 800654 is a 15-yard cone after the radius contract. With a shield equipped, four",
+    "enemies standing in front at 4, 6, 8 and 10 yards must all be hit; the report is that only the",
+    "closest one was hit before."
+  ],
+  "timeout_ms": 30000,
+  "players": [
+    {
+      "id": "cleric",
+      "race": 1,
+      "class": 27,
+      "level": 80
+    }
+  ],
+  "creatures": [
+    { "id": "a", "owner": "cleric", "entry": 36, "faction": 14, "level": 80, "health": 100000, "distance": 4 },
+    { "id": "b", "owner": "cleric", "entry": 36, "faction": 14, "level": 80, "health": 100000, "distance": 6 },
+    { "id": "c", "owner": "cleric", "entry": 36, "faction": 14, "level": 80, "health": 100000, "distance": 8 },
+    { "id": "d", "owner": "cleric", "entry": 36, "faction": 14, "level": 80, "health": 100000, "distance": 10 }
+  ],
+  "steps": [
+    { "action": "wait", "label": "Let spawn AI settle", "ms": 1000 },
+    { "action": "learn", "actor": "cleric", "spell": 800654 },
+    { "action": "add_item", "actor": "cleric", "item": 406570 },
+    { "action": "equip", "actor": "cleric", "item": 406570, "slot": 15 },
+    { "action": "add_item", "actor": "cleric", "item": 406742 },
+    { "action": "equip", "actor": "cleric", "item": 406742, "slot": 16 },
+    { "action": "snapshot", "label": "Health before Dawnbreak", "actor": "a", "metric": "health", "save_as": "a0" },
+    { "action": "snapshot", "label": "Health before Dawnbreak", "actor": "b", "metric": "health", "save_as": "b0" },
+    { "action": "snapshot", "label": "Health before Dawnbreak", "actor": "c", "metric": "health", "save_as": "c0" },
+    { "action": "snapshot", "label": "Health before Dawnbreak", "actor": "d", "metric": "health", "save_as": "d0" },
+    { "action": "cast", "label": "Cast Dawnbreak into the pack", "actor": "cleric", "spell": 800654 },
+    { "action": "assert", "label": "Enemy at 4 yards was hit", "metric": "health", "actor": "a", "relative_to": "a0", "max": -1, "within_ms": 3000 },
+    { "action": "assert", "label": "Enemy at 6 yards was hit", "metric": "health", "actor": "b", "relative_to": "b0", "max": -1, "within_ms": 3000 },
+    { "action": "assert", "label": "Enemy at 8 yards was hit", "metric": "health", "actor": "c", "relative_to": "c0", "max": -1, "within_ms": 3000 },
+    { "action": "assert", "label": "Enemy at 10 yards was hit", "metric": "health", "actor": "d", "relative_to": "d0", "max": -1, "within_ms": 3000 }
+  ]
+}

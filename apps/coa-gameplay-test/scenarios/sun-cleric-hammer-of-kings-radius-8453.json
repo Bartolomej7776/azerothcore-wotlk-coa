@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "name": "sun-cleric-hammer-of-kings-radius-8453",
+  "contract": [
+    "Hammer of Kings 804751 ticks through 804752, whose area radius is now 10 yards. Four enemies at",
+    "3, 5, 7 and 9 yards must all take a tick; the old 8-yard radius is what made the spell feel like",
+    "it required standing inside the target."
+  ],
+  "timeout_ms": 30000,
+  "players": [
+    {
+      "id": "cleric",
+      "race": 1,
+      "class": 27,
+      "level": 80
+    }
+  ],
+  "creatures": [
+    { "id": "a", "owner": "cleric", "entry": 36, "faction": 14, "level": 80, "health": 100000, "distance": 3 },
+    { "id": "b", "owner": "cleric", "entry": 36, "faction": 14, "level": 80, "health": 100000, "distance": 5 },
+    { "id": "c", "owner": "cleric", "entry": 36, "faction": 14, "level": 80, "health": 100000, "distance": 7 },
+    { "id": "d", "owner": "cleric", "entry": 36, "faction": 14, "level": 80, "health": 100000, "distance": 9 }
+  ],
+  "steps": [
+    { "action": "wait", "label": "Let spawn AI settle", "ms": 1000 },
+    { "action": "learn", "actor": "cleric", "spell": 804751 },
+    { "action": "snapshot", "label": "Health before the first tick", "actor": "a", "metric": "health", "save_as": "a0" },
+    { "action": "snapshot", "label": "Health before the first tick", "actor": "b", "metric": "health", "save_as": "b0" },
+    { "action": "snapshot", "label": "Health before the first tick", "actor": "c", "metric": "health", "save_as": "c0" },
+    { "action": "snapshot", "label": "Health before the first tick", "actor": "d", "metric": "health", "save_as": "d0" },
+    { "action": "cast", "label": "Activate Hammer of Kings", "actor": "cleric", "spell": 804751 },
+    { "action": "assert", "label": "Enemy at 3 yards was hit", "metric": "health", "actor": "a", "relative_to": "a0", "max": -1, "within_ms": 5000 },
+    { "action": "assert", "label": "Enemy at 5 yards was hit", "metric": "health", "actor": "b", "relative_to": "b0", "max": -1, "within_ms": 5000 },
+    { "action": "assert", "label": "Enemy at 7 yards was hit", "metric": "health", "actor": "c", "relative_to": "c0", "max": -1, "within_ms": 5000 },
+    { "action": "assert", "label": "Enemy at 9 yards was hit", "metric": "health", "actor": "d", "relative_to": "d0", "max": -1, "within_ms": 5000 }
+  ]
+}
