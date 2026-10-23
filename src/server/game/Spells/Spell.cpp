@@ -5864,7 +5864,11 @@ SpellCastResult Spell::CheckCast(bool strict, uint32* /*param1*/, uint32* /*para
             checkForm = false;
             break;
         }
-        if (checkForm)
+        bool prophetMount = m_caster->IsPlayer() && m_caster->getClass() == CLASS_PROPHET &&
+            (m_spellInfo->Effects[EFFECT_0].ApplyAuraName == SPELL_AURA_MOUNTED ||
+                m_spellInfo->Effects[EFFECT_1].ApplyAuraName == SPELL_AURA_MOUNTED ||
+                m_spellInfo->Effects[EFFECT_2].ApplyAuraName == SPELL_AURA_MOUNTED);
+        if (checkForm && !prophetMount)
         {
             // Cannot be used in this stance/form
             SpellCastResult shapeError = m_spellInfo->CheckShapeshift(m_caster->GetShapeshiftForm());
@@ -6831,11 +6835,13 @@ SpellCastResult Spell::CheckCast(bool strict, uint32* /*param1*/, uint32* /*para
                     if (m_caster->IsPlayer() && !allowMount && !m_spellInfo->AreaGroupId && !tinkerMechsuit)
                         return SPELL_FAILED_NO_MOUNTS_ALLOWED;
 
-                    if (m_caster->IsInDisallowedMountForm())
+                    if (m_caster->IsInDisallowedMountForm() &&
+                        !(m_caster->IsPlayer() && m_caster->getClass() == CLASS_PROPHET))
                         return SPELL_FAILED_NOT_SHAPESHIFT;
 
                     // xinef: dont allow to cast mounts in specific transforms
-                    if (m_caster->getTransForm())
+                    if (m_caster->getTransForm() &&
+                        !(m_caster->IsPlayer() && m_caster->getClass() == CLASS_PROPHET))
                         if (SpellInfo const* transformSpellInfo = sSpellMgr->GetSpellInfo(m_caster->getTransForm()))
                             if (transformSpellInfo->HasAttribute(SPELL_ATTR0_NO_IMMUNITIES) &&
                                     !transformSpellInfo->HasAttribute(SpellAttr0(SPELL_ATTR0_ALLOW_WHILE_MOUNTED | SPELL_ATTR0_AURA_IS_DEBUFF)))

@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "name": "venomancer-mount-from-form-8344",
+  "contract": [
+    "A Venomancer in Spider Form 800841 must be able to cast a mount. The mount spell removes the",
+    "shapeshift and applies the mount aura instead of being refused with SPELL_FAILED_NOT_SHAPESHIFT."
+  ],
+  "timeout_ms": 30000,
+  "players": [
+    {
+      "id": "venomancer",
+      "race": 1,
+      "class": 29,
+      "level": 60
+    }
+  ],
+  "steps": [
+    { "action": "wait", "label": "Let the character settle", "ms": 1000 },
+    { "action": "learn", "actor": "venomancer", "spell": 800841 },
+    { "action": "cast", "label": "Enter Spider Form", "actor": "venomancer", "spell": 800841 },
+    { "action": "assert", "label": "Spider Form is active", "metric": "aura", "actor": "venomancer", "spell": 800841, "equals": 1, "within_ms": 3000 },
+    { "action": "learn", "actor": "venomancer", "spell": 470 },
+    { "action": "cast", "label": "Mount while in Spider Form", "actor": "venomancer", "spell": 470 },
+    { "action": "assert", "label": "The mount aura is applied", "metric": "aura", "actor": "venomancer", "spell": 470, "equals": 1, "within_ms": 3000 }
+  ]
+}
