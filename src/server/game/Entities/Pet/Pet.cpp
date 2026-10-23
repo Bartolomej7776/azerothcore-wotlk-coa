@@ -1099,7 +1099,10 @@ bool Guardian::InitStatsForLevel(uint8 petlevel)
     SetFloatValue(UNIT_MOD_CAST_SPEED, 1.0f);
 
     // scale
-    SetObjectScale(GetNativeObjectScale());
+    float petScale = GetNativeObjectScale();
+    if (!IsHunterPet())
+        petScale *= 0.5f;
+    SetObjectScale(petScale);
 
     // Resistance
     // xinef: hunter pets should not inherit template resistances
