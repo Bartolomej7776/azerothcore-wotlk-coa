@@ -142,25 +142,34 @@ rewards in vanilla and live AtlasLoot), 0 %-chance CoA pieces on bosses and 43 t
 
 Left as is unless decided otherwise: quests 580290 and 580295 carry local Path to Ascension titles and MinLevel 8.
 
-## 7. Plan
+## 7. Changes on this branch
 
-Confirmed items first, then the variants once their scale is decided:
+| change | migration or file | evidence |
+|---|---|---|
+| Heart of Hakkar is 92005 (rank 3, model 28887, HM 17.55, MM 1.755, faction 28); 9780022 stays an unused template | `rev_20261025_80`, `boss_hakkar_coa.cpp` | log, wdb |
+| rank 1 on 11360, 11368, 11387-11391, 14826 (not trigger 14758); ManaModifier corrections; 14826 display 27651; guid 51391 → 11338 | `rev_20261025_81` | wdb, sub |
+| Hakkar Normal: 1400023 Cache of the Blood God 100 %, 97725 Offering Key 100 %; 13 boss sigils 1 %; Edge of Madness blood items 100 % | `rev_20261025_82` | wdb, exiles, sub |
+| access rows for difficulties 0-3 at level 60; every map-309 spawn on `spawnMask` 15 | `rev_20261025_83` | dbc |
+| Heroic, Mythic and Ascended templates for 61 families at +100000/+200000/+300000, health and melee damage ×1.44/×1.88/×2.32, `coa_boss_flex` hp_d1..d3 on the same ladder | `rev_20261025_84` | wdb (Hakkar, Mar'li, Arlokk, Bloodseeker Bat), Molten Core precedent |
+| own loot ids for 39 boss variants, 642 rows; Hakkar caches 1400039 / 2400039 / 2500039; no Zandalar set or Battleweaver pieces | `rev_20261025_85` | sub |
+| quest reputation from the faction reward index (+250/+350/+500); MinLevel 10 and 60 | `rev_20261025_86` | wdb, exiles |
+| Rin'wosho 14921 sells the 27 CoA reputation items | `rev_20261025_87` | wdb, sub |
+| trash kits from the log; Fierce Blow 975011 and Berserking 1126297; SmartAI on 11361, 11387, 14880, 15068 | `rev_20261025_88` | log |
+| boss timers from the log, Mar'li's Burrow and Poison Nova, Fierce Blow on bosses and adds; zealot, Ohgan, Chained Spirit, Bat Rider, Spawn of Mar'li and Zulian Prowler kits | `modules/mod-coa-raid-difficulty/src/*_coa.cpp`, stock `ZulGurub/*.cpp`, `rev_20261025_89` | log |
 
-- [ ] Hakkar Normal cache, Offering Key and sigil; boss sigils; Edge of Madness blood items at 100 %
-- [ ] Quest reputation and MinLevel; missing quests (givers to be settled)
-- [ ] Rin'wosho reputation items
-- [ ] Boss timers and missing live spells; Fierce Blow and Knockdown on bosses and adds; add kits
-- [ ] Trash kits, Fierce Blow and Berserking; ManaModifier and display corrections
-- [ ] Normal boss health from the log
-- [ ] Access rows for difficulties 1-3 at level 60
-- [ ] Variant templates, health and loot for Heroic, Mythic and Ascended
+Normal boss health is unchanged. Knockdown 520871 is not added: it is a player ability, and the bosses are immune
+to it in the log.
 
-## 8. Open decisions
+## 8. Still open
 
-1. Normal health: adopt the measured per-player values, linear in group size, from one 11-12 player clear?
-2. Variant health scale: sub ×2/×3/×4, Molten Core ×1.44/×1.88/×2.32, or the single wdb row 311374 (×1.544)?
-3. Heart of Hakkar 92005 in place of 9780022; Loa Avatar templates 666988-666992.
-4. Zandalar set as a boss drop, and the 0 %-chance CoA pieces.
-5. Ascended cache 2400039 or 2500039.
-6. Rank 1 (wdb) or normal (pfQuest, exiles) for 11360, 11368, 11387-11391, 14758, 14826.
-7. Archive-only spawn swaps and the sub-only Hakkari Priest.
+1. Normal health: the measured per-player values above, from one 11-12 player clear, are not applied.
+2. Loa Avatars 666988-666992 (wdb/exiles only) are not added.
+3. Missing quests: their givers are unknown.
+4. Dungeon Spoils on the variants are left out.
+5. The Mythic Heart of Hakkar 1319802 is inferred from the tier offset; the dump has no Mythic row.
+6. Trash variants keep the Normal loot id; Edge of Madness variants use the sub 11.111 % chances.
+7. DamageModifier follows the health ladder as in Molten Core; no log measures variant melee damage.
+8. The logs carry no timings for trash abilities and Berserking: the Molten Core windows are used.
+9. Archive-only spawn swaps other than 51391, the sub-only Hakkari Priest and the possible stacked duplicates.
+10. Mar'li's Burrow lasts an estimated 3 s; Storm Shield stays on Lor'Khan, although the log mostly shows it on Zath;
+    2118267 "Storm Shield - Extra" and Shred's Razor Claws part are not scripted.
