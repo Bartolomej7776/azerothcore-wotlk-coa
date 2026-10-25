@@ -1,11 +1,12 @@
-# Stormfang Delivery — Skin Peeler Quest + Apex Mini Bosses
+# Skin Peeler Delivery — Stormfang + Apex Huntmasters
 
-This document is the implementation manifest for the completed Stormfang encounter. It is intentionally limited to Stormfang; the Azshara and Feralas encounters remain design content in the companion draft.
+This document is the implementation manifest for the completed Stormfang encounter and the two faction huntmasters. It is limited to implemented content; Azshara and Feralas remain design content in the companion draft.
 
 ## Delivery scope
 
 - Runtime encounter: `modules/mod-skinpeelerquest`
-- Canonical world-data migration: `data/sql/updates/pending_db_world/rev_20261025_01_apex_stormfang.sql`
+- Stormfang world data: `data/sql/updates/pending_db_world/rev_20261025_01_apex_stormfang.sql`
+- Huntmaster world data: `data/sql/updates/pending_db_world/rev_20261025_02_apex_huntmasters.sql`
 - Gameplay coverage: ten Stormfang scenarios under `apps/coa-gameplay-test/scenarios/`
 - Design and encounter contract: `docs/skin-peeler-quest-apex-mini-bosses.md`
 
@@ -13,10 +14,11 @@ This document is the implementation manifest for the completed Stormfang encount
 
 | File | Lines | Responsibility |
 | --- | ---: | --- |
-| `modules/mod-skinpeelerquest/src/SkinpeelerQuest.cpp` | 1–469 | Complete encounter implementation |
+| `modules/mod-skinpeelerquest/src/SkinpeelerQuest.cpp` | 1–469 | Complete Stormfang encounter implementation |
 | `modules/mod-skinpeelerquest/CMakeLists.txt` | 1–9 | Module source registration |
-| `data/sql/updates/pending_db_world/rev_20261025_01_apex_stormfang.sql` | 1–87 | Canonical templates, spawn, text, SmartAI, spell and visual rows |
-| `docs/skin-peeler-quest-apex-mini-bosses.md` | 1–68 | Encounter design and technical reference |
+| `data/sql/updates/pending_db_world/rev_20261025_01_apex_stormfang.sql` | 1–87 | Stormfang templates, spawn, text, SmartAI, spell and visual rows |
+| `data/sql/updates/pending_db_world/rev_20261025_02_apex_huntmasters.sql` | 1–21 | Torvald Greyfeather and Zul'khar templates, models, presets and spawns |
+| `docs/skin-peeler-quest-apex-mini-bosses.md` | 1–135 | Encounter design and technical reference |
 | `apps/coa-gameplay-test/scenarios/skinpeeler-stormfang-*.json` | 29–109 each | Gameplay regression scenarios |
 
 ### `SkinpeelerQuest.cpp` line index
@@ -39,7 +41,7 @@ This document is the implementation manifest for the completed Stormfang encount
 | 448–457 | Melee sound throttle outside Stormcall |
 | 462–469 | Client spell registration and script construction |
 
-### Database rows
+### Stormfang database rows
 
 | Table | Keys | Content |
 | --- | --- | --- |
@@ -53,9 +55,21 @@ This document is the implementation manifest for the completed Stormfang encount
 | `spell_dbc` | `100331`, `1004111`–`1004119` | Custom Rake and Stormfang spell data, including Lightning Call damage |
 | `spellvisual_dbc` | `99028` | Stormcall visual with `ChannelKit = 0` |
 | `spellvisualkit_dbc` | `791`, `99028` | Stormcall visual kit data |
-| `spellvisualkit_dbc` | table definition | Created only when absent |
 
-The migration removes obsolete pre-final entries (`9916201`, `9916202`, `9916210`), their spawn, text, scripts, and earlier spell/visual rows before inserting the final rows.
+The Stormfang migration removes obsolete pre-final entries (`9916201`, `9916202`, `9916210`), their spawn, text, scripts, and earlier spell/visual rows before inserting the final rows.
+
+### Huntmaster database rows
+
+| Table | Keys | Content |
+| --- | --- | --- |
+| `creature_template` | `9916113` | Torvald Greyfeather; level 60 normal; faction 35; `npcflag = 3`; base display 53 |
+| `creature_template` | `9916114` | Zul'khar; level 60 normal; faction 35; `npcflag = 3`; base display 1478 |
+| `creature_template_model` | `9916113`, `9916114` | Dwarf male display 53; Troll male display 1478 |
+| `creature` | `9999266` | Torvald Greyfeather; map 0; `-9168.72, 768.735, 154.275`; 300-second respawn |
+| `creature` | `9999265` | Zul'khar; map 1; `2003.64, -4645.85, 25.9132`; 300-second respawn |
+| `creature_display_preset` | `9916113`, `9916114` | Moonlit and Emberlit Great Lynx appearance presets |
+
+The Huntmaster migration removes the obsolete look-test entries (`9916111`, `9916112`) and their spawns before inserting the final entries.
 
 ### Runtime behavior contract
 
@@ -63,19 +77,22 @@ The migration removes obsolete pre-final entries (`9916201`, `9916202`, `9916210
 - He remains defensive/passive until attacked.
 - **Thunder Pounce** targets a non-tank within 30 yards. The landing hook calculates a distance-based delay and casts `1004116` on the same target.
 - **Storm Howl** creates two `9916211` wolves with 25-second timed despawns. They receive 100 initial threat and are assigned non-tank targets; a tank can reacquire them through normal threat.
-- **Stormcall** is a seven-second self-root. `StartStormcall` schedules pulses at 0–6 seconds and casts `1004118` on every living hostile player in phase within 50 yards.
+- **Stormcall** is a seven-second self-root. Pulses occur at 0–6 seconds and cast `1004118` on every living hostile player in phase within 50 yards.
 - **Lightning Call** is a 100-nature damage spell, not a dummy aura. Seven pulses produce seven combat-log damage events and 700 total damage per player before mitigation.
 - **Stormcall animation** uses client emote state `122` (`Eat No Sheathe`) and `HandleEmoteCommand(122)`; the state and root are cleared after seven seconds. CreatureSpecial/ChannelKit animation is disabled.
 - **Thunderclap** and **Rake** are current-victim abilities and are suppressed while Stormcall is active.
 - **Phase pressure** accelerates Pounce, Storm Howl and Stormcall timers at 70% and 40%; 65% and 30% are yell transitions, not additional spell phases.
 - **Wolf spacing** uses chase movement rather than a one-shot point move, so the lower-GUID wolf remains engaged while separating from the other wolf.
+- **Torvald Greyfeather** and **Zul'khar** are stationary level-60 faction-35 questgivers with `npcflag = 3`, stock character displays, and `creature_display_preset` paper-doll rows.
+- The core mirror-image path sets `UNIT_FLAG2_MIRROR_IMAGE` for any preset creature; no module code or custom model is needed for the huntmaster appearance.
+- Huntmaster quest and gossip rows are intentionally not part of this delivery; the contract content pass supplies them.
 
 ### Client and DLL boundary
 
 - The module registers its custom spell IDs through the existing `Ascension::ClientSpellPatches` interface in `SkinpeelerQuest.cpp:462-469`.
-- No new opcodes, packet structures, GUID formats, or DLL exports are introduced.
-- World-data spell and visual rows are supplied by the canonical SQL migration and are streamed through the existing custom-spell path.
-- No client DLL source changes are part of this delivery.
+- Huntmaster appearance uses the existing `CMSG_GET_MIRRORIMAGE_DATA` (`0x0401`) / `SMSG_MIRRORIMAGE_DATA` (`0x0402`) path and `creature_display_preset`.
+- No new opcodes, packet structures, GUID formats, DLL exports, custom models or client DLL source changes are introduced.
+- World-data spell and visual rows are supplied by the migrations and streamed through the existing custom-spell path.
 
 ### Gameplay scenarios
 
@@ -99,8 +116,10 @@ The migration removes obsolete pre-final entries (`9916201`, `9916202`, `9916210
 - `skinpeeler-stormfang-complete-group` passed on the same encounter implementation before the final debug-log-only cleanup.
 - Local runtime confirmed seven `100` damage applications per player per Stormcall in the temporary verification log.
 - The temporary verification logging was removed before this delivery.
+- The huntmaster migrations reproduce the final working database rows; they have not been applied to a separate clean database in this environment.
 
 ### Known boundaries
 
-- The gameplay harness cannot render the client emote, channel bar, audio, or verify exact pathing/position spacing visually.
+- The gameplay harness cannot render client emotes, channel bars, audio, mirror-image paper dolls, or exact pathing/position spacing visually.
+- Huntmaster quest and gossip content is not implemented in this pass.
 - The companion design document reserves Azshara and Feralas for later implementation.
