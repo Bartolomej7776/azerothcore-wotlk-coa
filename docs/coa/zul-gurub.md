@@ -42,7 +42,7 @@ neither is used as a health target.
 |---|---|---|---|
 | `dungeon_access_template` | id 20, difficulty 0, level 50 | difficulties 0-3, level 60 (LFG target 57-60) | dbc |
 | variant templates | none | entry + 100000 / 200000 / 300000 for bosses and trash, `difficulty_entry_1..3` | dbc, sub, tavern |
-| attunement | none | unknown | — |
+| attunement | none | Ascended requires an attunement begun "by speaking with the appropriate NPC"; NPC and quest unknown | dbc (`Tutorial.dbc` 142) |
 | `lfg_dungeon_template` | none | unknown; nothing shows live ZG in RDF | — |
 | release gate | `StageZulGurub` 4, dist `ReleaseStage` 3: closed by default | config decision | — |
 
@@ -80,8 +80,6 @@ Adds still on stock AzerothCore kits, CoA kits seen in the log:
 
 Archive-only boss points (approval needed):
 
-- Loa Avatars 666988-666992 die at each priest's 50 % phase change in the log; they are absent from `coa_world`.
-  Templates exist only in wdb/exiles.
 - Heart of Hakkar: the log has 92005 (wdb rank 3, model 28887, HM 17.55); the script uses 9780022
   (`boss_hakkar_coa.cpp`), an id that is "Netherstorm Fel Quests" in sub.
 - Ohgan rank 1 / display 215271, Spawn of Mar'li display 959, Powerful Healing Ward named "Healing Stream Totem"
@@ -156,6 +154,11 @@ Left as is unless decided otherwise: quests 580290 and 580295 carry local Path t
 | Rin'wosho 14921 sells the 27 CoA reputation items | `rev_20261025_87` | wdb, sub |
 | trash kits from the log; Fierce Blow 975011 and Berserking 1126297; SmartAI on 11361, 11387, 14880, 15068 | `rev_20261025_88` | log |
 | boss timers from the log, Mar'li's Burrow and Poison Nova, Fierce Blow on bosses and adds; zealot, Ohgan, Chained Spirit, Bat Rider, Spawn of Mar'li and Zulian Prowler kits | `modules/mod-coa-raid-difficulty/src/*_coa.cpp`, stock `ZulGurub/*.cpp`, `rev_20261025_89` | log |
+| Loa Avatars 666988-666992 (faction 35, level 63): each High Priest summons its avatar at the pull and at 50 % drains it with Drain Power (-99 % damage taken) until it dies, then gains the Gift of the Blood God and its second kit; Hakkar drains the avatar of every living priest at the pull and gains that Aspect when it dies | `rev_20261025_90`, `zg_coa_common.h` (`LoaAvatar`), the five priests, `boss_hakkar_coa.cpp` | wdb, log, dbc |
+| Thekal: no false death, no zealot revival, no tiger phase at full health; tiger form when the avatar dies | `boss_thekal_coa.cpp` | log |
+| boss achievements per difficulty: Normal, Heroic, Mythic and Ascended criteria get `achievement_criteria_data` scripts that match the exact difficulty | `rev_20261025_91`, `AscensionAchievementConditions.cpp` | dbc |
+| Mandokir: Threatening Gaze 4 s, then Menacing Gaze 4 s; a hostile spell with a power cost on the global cooldown gives Sentenced to Die and Decapitate; Mounted out of combat; Bloodlord's Presence (no durability loss) at the pull | `boss_mandokir_coa.cpp` | dbc |
+| Jin'do: the Brain Wash Totem casts Brainwash 2118502; the Powerful Healing Ward casts Healing Stream 2118504 (1 % of missing health per second) and loses its stock heal and melee | `boss_jindo_coa.cpp`, `rev_20261025_92` | dbc, wdb (ward named "Healing Stream Totem") |
 
 Normal boss health is unchanged. Knockdown 520871 is not added: it is a player ability, and the bosses are immune
 to it in the log.
@@ -163,7 +166,8 @@ to it in the log.
 ## 8. Still open
 
 1. Normal health: the measured per-player values above, from one 11-12 player clear, are not applied.
-2. Loa Avatars 666988-666992 (wdb/exiles only) are not added.
+2. Ascended attunement: `Tutorial.dbc` 142 says Ascended needs an attunement begun at an NPC. Neither the NPC nor
+   the quest is in any source, so Ascended opens without one; no NPC is invented.
 3. Missing quests: their givers are unknown.
 4. Dungeon Spoils on the variants are left out.
 5. The Mythic Heart of Hakkar 1319802 is inferred from the tier offset; the dump has no Mythic row.
@@ -173,3 +177,10 @@ to it in the log.
 9. Archive-only spawn swaps other than 51391, the sub-only Hakkari Priest and the possible stacked duplicates.
 10. Mar'li's Burrow lasts an estimated 3 s; Storm Shield stays on Lor'Khan, although the log mostly shows it on Zath;
     2118267 "Storm Shield - Extra" and Shred's Razor Claws part are not scripted.
+11. Estimated, not in any data: the avatars' level 63, faction 35 and position (5 yd behind a priest, a 10 yd ring
+    around Hakkar); the order drain → death → Gift and Aspect; Mandokir's gaze order and Bloodlord's Presence once
+    at the pull; which totem casts which spell; exact-difficulty achievement credit (no credit for a lower
+    difficulty).
+12. Left out for lack of data: Realm of the Blood God 2118425 (its phase 4 content is missing), Mounted 2118411 on
+    Ohgan, Jin'do's Seeking Shadow Bolts 2118550-2118556 and Rise 2118561, Hakkar's Dormant Heart 2118651, Animate
+    Blood 2118640/2118641, Rain of Blood 2118642 and the meteor split 2118646.

@@ -13,7 +13,11 @@
  *     Holy Wrath    first 18s, every 15s   on the tank, arcs on
  *     Holy Fire     first 22s, every 10s   random player, hit and burn
  *
- *   Snake form, at 50% (the video: 47-50%)
+ *   At 50% (the video: 47-50%) he drains the Avatar of Hethiss (see LoaAvatar),
+ *   taking ~1% damage while it dies; then the Gift of the Blood God and his
+ *   snake form.
+ *
+ *   Snake form, when the avatar dies
  *     Toxic Bombardement  first 1s,  every 15s   toxic cloud at a random player
  *     Parasitic Poison    first 3s,  every 15s   random player; dispelled, a
  *                                                Parasitic Serpent breaks out
@@ -70,7 +74,9 @@ namespace
         INFO_HOLY_WRATH            = 2118016,
         SPELL_HOLY_WRATH           = 2118020,
         SPELL_HOLY_WRATH_HIT       = 2118021,
+        SPELL_DRAIN_POWER          = 2118022,
         SPELL_ASPECT_OF_HETHISS    = 2118023,
+        SPELL_GIFT_OF_THE_BLOOD_GOD = 2118024,
         SPELL_POISONOUS_FANGS      = 2118025,
         SPELL_VIRULENT_POISON      = 2118026,
         SPELL_VENOM_SPIT           = 2118030,
@@ -87,7 +93,8 @@ namespace
     {
         NPC_RAZZASHI_COBRA    = 11373,
         NPC_PARASITIC_SERPENT = 14884,
-        NPC_WORLD_TRIGGER     = 12999
+        NPC_WORLD_TRIGGER     = 12999,
+        NPC_AVATAR_OF_HETHISS = 666991
     };
 
     enum Events
@@ -125,6 +132,7 @@ namespace
         {
             BossAI::Reset();
             me->RemoveAllAuras();
+            _avatar.Despawn(me);
             _snake = false;
             _frenzied = false;
             _burst.clear();
@@ -133,6 +141,7 @@ namespace
         void JustEngagedWith(Unit* who) override
         {
             BossAI::JustEngagedWith(who);
+            _avatar.Summon(me);
 
             events.SetPhase(PHASE_TROLL);
             events.ScheduleEvent(EVENT_THRASH, 8s);
@@ -147,6 +156,7 @@ namespace
         {
             BossAI::JustDied(killer);
             Talk(SAY_DEATH);
+            _avatar.Despawn(me);
             me->RemoveAllAuras();
         }
 
@@ -157,17 +167,8 @@ namespace
             if (!_snake && me->HealthBelowPctDamaged(50, damage))
             {
                 _snake = true;
-                me->InterruptNonMeleeSpells(false);
-                DoCastSelf(SPELL_ASPECT_OF_HETHISS, true);
-                DoCastSelf(SPELL_POISONOUS_FANGS, true);
-                Talk(SAY_TRANSFORM);
-                DoResetThreatList();
-
-                events.SetPhase(PHASE_SNAKE);
-                events.ScheduleEvent(EVENT_TOXIC_BOMBARDEMENT, 1s, 0, PHASE_SNAKE);
-                events.ScheduleEvent(EVENT_PARASITIC_POISON, 3s, 0, PHASE_SNAKE);
-                events.ScheduleEvent(EVENT_VENOM_SPIT, 5s, 0, PHASE_SNAKE);
-                events.ScheduleEvent(EVENT_CORPSE_EXPLOSION, 17s, 0, PHASE_SNAKE);
+                if (!_avatar.Drain(me))
+                    TakeSnakeForm();
             }
 
             if (!_frenzied && me->HealthBelowPctDamaged(20, damage))
@@ -175,6 +176,22 @@ namespace
                 _frenzied = true;
                 DoCastSelf(SPELL_FRENZY, true);
             }
+        }
+
+        void TakeSnakeForm()
+        {
+            me->InterruptNonMeleeSpells(false);
+            DoCastSelf(SPELL_GIFT_OF_THE_BLOOD_GOD, true);
+            DoCastSelf(SPELL_ASPECT_OF_HETHISS, true);
+            DoCastSelf(SPELL_POISONOUS_FANGS, true);
+            Talk(SAY_TRANSFORM);
+            DoResetThreatList();
+
+            events.SetPhase(PHASE_SNAKE);
+            events.ScheduleEvent(EVENT_TOXIC_BOMBARDEMENT, 1s, 0, PHASE_SNAKE);
+            events.ScheduleEvent(EVENT_PARASITIC_POISON, 3s, 0, PHASE_SNAKE);
+            events.ScheduleEvent(EVENT_VENOM_SPIT, 5s, 0, PHASE_SNAKE);
+            events.ScheduleEvent(EVENT_CORPSE_EXPLOSION, 17s, 0, PHASE_SNAKE);
         }
 
         // The casts are dummies; what they do happens when they finish.
@@ -290,6 +307,9 @@ namespace
             if (!UpdateVictim())
                 return;
 
+            if (_avatar.Consumed(me))
+                TakeSnakeForm();
+
             events.Update(diff);
 
             if (me->HasUnitState(UNIT_STATE_CASTING))
@@ -355,6 +375,7 @@ namespace
     private:
         bool _snake = false;
         bool _frenzied = false;
+        LoaAvatar _avatar{ NPC_AVATAR_OF_HETHISS, SPELL_DRAIN_POWER };
         ObjectGuid _target;
         GuidSet _burst;
     };

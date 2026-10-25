@@ -15,7 +15,10 @@
  *     Call of Hir'eek   first 22s              six Bloodseeker Bats
  *     Greater Heal      first 21s, every 46s   20% of her health, interruptible
  *
- *   Bat form, at 50%
+ *   At 50% she drains the Avatar of Hir'eek (see LoaAvatar), taking ~1% damage
+ *   while it dies; then the Gift of the Blood God and her bat form.
+ *
+ *   Bat form, when the avatar dies
  *     Bat-tering Charge  first 2s, every 20s   random player, knocks back
  *                                              everyone within 10 yards
  *     Terrifying Screech first 4s, every 20s   everyone in the room
@@ -67,7 +70,9 @@ namespace
         SPELL_CURSE_OF_BLOOD      = 2106117,
         SPELL_CURSE_OF_BLOOD_HIT  = 2106118,
         SPELL_CALL_OF_HIREEK      = 2106120,
+        SPELL_DRAIN_POWER         = 2106121,
         SPELL_ASPECT_OF_HIREEK    = 2106122,
+        SPELL_GIFT_OF_THE_BLOOD_GOD = 2106123,
         SPELL_BATTERING_CHARGE    = 2106125,
         SPELL_BATTERING_STUN      = 2106126,
         SPELL_BATTERING_IMPACT    = 2106127,
@@ -80,7 +85,8 @@ namespace
     enum Npcs
     {
         NPC_BLOODSEEKER_BAT = 11368,
-        NPC_BATRIDER        = 14750
+        NPC_BATRIDER        = 14750,
+        NPC_AVATAR_OF_HIREEK = 666992
     };
 
     enum Events
@@ -132,6 +138,8 @@ namespace
             me->SetCombatMovement(false);
             me->RemoveAurasDueToSpell(SPELL_ASPECT_OF_HIREEK);
             me->RemoveAurasDueToSpell(SPELL_VAMPIRISM);
+            me->RemoveAurasDueToSpell(SPELL_GIFT_OF_THE_BLOOD_GOD);
+            _avatar.Despawn(me);
             _bat = false;
             _riders = 0;
             DoCastSelf(SPELL_GREEN_CHANNELING, true);
@@ -156,6 +164,7 @@ namespace
             me->SetDisableGravity(false);
             me->SetCombatMovement(true);
             me->SetReactState(REACT_AGGRESSIVE);
+            _avatar.Summon(me);
 
             events.SetPhase(PHASE_TROLL);
             events.ScheduleEvent(EVENT_MIND_FLAY, 4s, 0, PHASE_TROLL);
@@ -171,12 +180,14 @@ namespace
         {
             if (why != EvadeReason::EVADE_REASON_NO_PATH)
                 me->DespawnOnEvade(5s);
+            _avatar.Despawn(me);
             BossAI::EnterEvadeMode(why);
         }
 
         void JustDied(Unit* killer) override
         {
             BossAI::JustDied(killer);
+            _avatar.Despawn(me);
             Talk(SAY_DEATH);
         }
 
@@ -188,7 +199,14 @@ namespace
                 return;
 
             _bat = true;
+            if (!_avatar.Drain(me))
+                TakeBatForm();
+        }
+
+        void TakeBatForm()
+        {
             me->InterruptNonMeleeSpells(false);
+            DoCastSelf(SPELL_GIFT_OF_THE_BLOOD_GOD, true);
             DoCastSelf(SPELL_ASPECT_OF_HIREEK, true);
             DoCastSelf(SPELL_VAMPIRISM, true);
             DoResetThreatList();
@@ -265,6 +283,9 @@ namespace
             if (!UpdateVictim())
                 return;
 
+            if (_avatar.Consumed(me))
+                TakeBatForm();
+
             events.Update(diff);
 
             if (me->HasUnitState(UNIT_STATE_CASTING))
@@ -334,6 +355,7 @@ namespace
     private:
         bool _bat = false;
         uint8 _riders = 0;
+        LoaAvatar _avatar{ NPC_AVATAR_OF_HIREEK, SPELL_DRAIN_POWER };
         ObjectGuid _target;
     };
 }

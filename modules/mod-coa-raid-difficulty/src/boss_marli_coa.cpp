@@ -16,7 +16,10 @@
  *     Infest             first 87s, every 60s   an egg hatches a festering
  *                                               spider that bursts on death
  *
- *   Spider form, at 50%
+ *   At 50% she drains the Avatar of Shadra (see LoaAvatar), taking ~1% damage
+ *   while it dies; then the Gift of the Blood God and her spider form.
+ *
+ *   Spider form, when the avatar dies
  *     Acid Spit          first 1s,  every 12s   on the tank, poison and -10% armour
  *     Web Spray          first 15s, every 45s   everyone within 20 yards is
  *                                               slowed, then webbed; then she
@@ -71,7 +74,9 @@ namespace
         SPELL_POISON_BOLT_HIT     = 2118110,
         SPELL_HATCH_EGGS          = 2118115,
         SPELL_EVOLVE              = 2118116,
+        SPELL_DRAIN_POWER         = 2118122,
         SPELL_ASPECT_OF_SHADRA    = 2118123,
+        SPELL_GIFT_OF_THE_BLOOD_GOD = 2118124,
         SPELL_FURIOUS_STRIKES     = 2118125,
         SPELL_ACID_SPIT           = 2118127,
         SPELL_ACID_SPIT_DOT       = 2118128,
@@ -88,7 +93,8 @@ namespace
     {
         GO_SPIDER_EGGS     = 179985,
         NPC_SPAWN_OF_MARLI = 15041,
-        NPC_WORLD_TRIGGER  = 12999
+        NPC_WORLD_TRIGGER  = 12999,
+        NPC_AVATAR_OF_SHADRA = 666990
     };
 
     enum Events
@@ -127,6 +133,8 @@ namespace
         {
             me->RemoveAurasDueToSpell(SPELL_ASPECT_OF_SHADRA);
             me->RemoveAurasDueToSpell(SPELL_FURIOUS_STRIKES);
+            me->RemoveAurasDueToSpell(SPELL_GIFT_OF_THE_BLOOD_GOD);
+            _avatar.Despawn(me);
             _spider = false;
             _festering.clear();
             Emerge();
@@ -145,6 +153,7 @@ namespace
         {
             BossAI::JustEngagedWith(who);
             Talk(SAY_AGGRO);
+            _avatar.Summon(me);
 
             events.SetPhase(PHASE_TROLL);
             events.ScheduleEvent(EVENT_THRASH, 4s, 6s);
@@ -159,6 +168,7 @@ namespace
         void JustDied(Unit* killer) override
         {
             BossAI::JustDied(killer);
+            _avatar.Despawn(me);
             Talk(SAY_DEATH);
         }
 
@@ -170,8 +180,15 @@ namespace
                 return;
 
             _spider = true;
+            if (!_avatar.Drain(me))
+                TakeSpiderForm();
+        }
+
+        void TakeSpiderForm()
+        {
             me->InterruptNonMeleeSpells(false);
             Talk(SAY_TRANSFORM);
+            DoCastSelf(SPELL_GIFT_OF_THE_BLOOD_GOD, true);
             DoCastSelf(SPELL_ASPECT_OF_SHADRA, true);
             DoCastSelf(SPELL_FURIOUS_STRIKES, true);
 
@@ -289,6 +306,9 @@ namespace
             if (!UpdateVictim())
                 return;
 
+            if (_avatar.Consumed(me))
+                TakeSpiderForm();
+
             events.Update(diff);
 
             if (me->HasUnitState(UNIT_STATE_CASTING))
@@ -369,6 +389,7 @@ namespace
 
     private:
         bool _spider = false;
+        LoaAvatar _avatar{ NPC_AVATAR_OF_SHADRA, SPELL_DRAIN_POWER };
         GuidSet _festering;
     };
 }

@@ -18,10 +18,12 @@
 
 #include "Creature.h"
 #include "Map.h"
+#include "ObjectAccessor.h"
 #include "Player.h"
 #include "SpellAuras.h"
 #include "SpellInfo.h"
 #include "SpellMgr.h"
+#include "TemporarySummon.h"
 
 #include <algorithm>
 #include <functional>
@@ -119,6 +121,89 @@ namespace coa_zg
         }
         return best;
     }
+
+    // A Loa Avatar, the loa a High Priest (and later Hakkar) feeds on.
+    //
+    // The CoA log of 2026-08-02 shows one per priest pull (a new creature each
+    // pull, buffed by players at the pull), friendly to the raid. At about half
+    // health each priest takes ~1% damage for 3-4 seconds, the time Drain Power
+    // (20-24% of the avatar's health per second, -99% damage taken on the caster)
+    // needs to kill it, and the priest's second kit starts the moment the avatar
+    // dies. Where it stands is not in any data: here, 5 yards behind the priest.
+    // The drain itself, the Aspect and the Gift of the Blood God are not in the
+    // log, so the order drain -> death -> Aspect + Gift is read from the spells
+    // ("Drains the essence from the closest Loa Avatar", "Consumed the Avatar of
+    // ...") and from that timing.
+    class LoaAvatar
+    {
+    public:
+        LoaAvatar(uint32 entry, uint32 drain) : _entry(entry), _drain(drain) { }
+
+        void Summon(Creature* owner, Position const& pos)
+        {
+            Despawn(owner);
+            // Without a summoner: BossAI would pull the friendly avatar into combat with the raid.
+            if (TempSummon* avatar = owner->GetMap()->SummonCreature(_entry, pos))
+            {
+                avatar->SetReactState(REACT_PASSIVE);
+                _guid = avatar->GetGUID();
+            }
+        }
+
+        void Summon(Creature* owner)
+        {
+            Summon(owner, owner->GetNearPosition(5.0f, float(M_PI)));
+        }
+
+        bool Drain(Creature* owner)
+        {
+            Creature* avatar = Get(owner);
+            if (_draining || !avatar || !avatar->IsAlive())
+                return false;
+            owner->CastSpell(avatar, _drain, true);
+            _draining = true;
+            return true;
+        }
+
+        // True once, when the avatar being drained is gone. The drain's -99% on
+        // the caster lasts seven days, so it is taken off here, unless the
+        // caster still drains other avatars with the same spell (Hakkar).
+        bool Consumed(Creature* owner, bool release = true)
+        {
+            if (!_draining)
+                return false;
+            if (Creature* avatar = Get(owner))
+                if (avatar->IsAlive())
+                    return false;
+            _draining = false;
+            if (release)
+                owner->RemoveAurasDueToSpell(sSpellMgr->GetSpellIdForDifficulty(_drain, owner));
+            return true;
+        }
+
+        bool Draining() const { return _draining; }
+
+        void Despawn(Creature* owner)
+        {
+            if (Creature* avatar = Get(owner))
+                avatar->DespawnOrUnsummon();
+            _guid.Clear();
+            if (_draining)
+                owner->RemoveAurasDueToSpell(sSpellMgr->GetSpellIdForDifficulty(_drain, owner));
+            _draining = false;
+        }
+
+    private:
+        Creature* Get(Creature* owner) const
+        {
+            return _guid ? ObjectAccessor::GetCreature(*owner, _guid) : nullptr;
+        }
+
+        uint32 _entry;
+        uint32 _drain;
+        ObjectGuid _guid;
+        bool _draining = false;
+    };
 }
 
 #endif

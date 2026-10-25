@@ -25,6 +25,11 @@
  *   Both forms
  *     Fierce Blow        first 6.7-17.3s, every 6-10s   on the tank
  *
+ *   At 50% she drains the Avatar of Bethekk (see LoaAvatar), taking ~1% damage
+ *   while it dies, then gains the Gift of the Blood God. Her panther form keeps
+ *   its own timer: in the CoA log her Razor Claws came almost a minute before
+ *   the drain.
+ *
  * Decided here, not in the data:
  *   - Claw Storm's first cast, Ravage and Shadowstep timers (each appears once or twice in
  *     the video); Kidney Shot's first cast;
@@ -66,7 +71,9 @@ namespace
         SPELL_SHADOWSTEP         = 2118308,
         SPELL_MARK_OF_ARLOKK     = 2118310,
         SPELL_MARK_OF_ARLOKK_AURA = 2118311,
+        SPELL_DRAIN_POWER        = 2118322,
         SPELL_ASPECT_OF_BETHEKK  = 2118323,
+        SPELL_GIFT_OF_THE_BLOOD_GOD = 2118324,
         SPELL_RAZOR_CLAWS        = 2118325,
         SPELL_RAVAGE             = 2118330,
         SPELL_CLAW_STORM         = 2118336,
@@ -97,6 +104,7 @@ namespace
         PHASE_TWO   = 2
     };
 
+    constexpr uint32 NPC_AVATAR_OF_BETHEKK = 666988;
     constexpr uint32 WEAPON_DAGGER       = 10616;
     constexpr uint8 MAX_PROWLERS_PER_SIDE = 15;
     constexpr float MARK_PULL_RANGE      = 40.0f;
@@ -113,6 +121,9 @@ namespace
             _summonCountA = 0;
             _summonCountB = 0;
             _marking = false;
+            _drained = false;
+            _avatar.Despawn(me);
+            me->RemoveAurasDueToSpell(SPELL_GIFT_OF_THE_BLOOD_GOD);
             me->RemoveAurasDueToSpell(SPELL_ASPECT_OF_BETHEKK);
             me->RemoveAurasDueToSpell(SPELL_RAZOR_CLAWS);
             me->SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID + 0, WEAPON_DAGGER);
@@ -125,6 +136,7 @@ namespace
         void JustDied(Unit* /*killer*/) override
         {
             _JustDied();
+            _avatar.Despawn(me);
             Talk(SAY_DEATH);
             ClearMarks();
         }
@@ -133,6 +145,7 @@ namespace
         {
             _JustEngagedWith();
             Talk(SAY_AGGRO);
+            _avatar.Summon(me);
 
             events.SetPhase(PHASE_ONE);
             ScheduleTroll(2s);
@@ -173,11 +186,24 @@ namespace
         void EnterEvadeMode(EvadeReason why) override
         {
             BossAI::EnterEvadeMode(why);
+            _avatar.Despawn(me);
             ClearMarks();
             std::list<Creature*> panthers;
             GetCreatureListWithEntryInGrid(panthers, me, NPC_ZULIAN_PROWLER, 200.0f);
             for (Creature* panther : panthers)
                 panther->DespawnOrUnsummon();
+        }
+
+        void DamageTaken(Unit* attacker, uint32& damage, DamageEffectType type, SpellSchoolMask school) override
+        {
+            BossAI::DamageTaken(attacker, damage, type, school);
+
+            if (_drained || !me->HealthBelowPctDamaged(50, damage))
+                return;
+
+            _drained = true;
+            if (!_avatar.Drain(me))
+                DoCastSelf(SPELL_GIFT_OF_THE_BLOOD_GOD, true);
         }
 
         // A prowler died on side 1 or 2.
@@ -228,6 +254,9 @@ namespace
         {
             if (!UpdateVictim())
                 return;
+
+            if (_avatar.Consumed(me))
+                DoCastSelf(SPELL_GIFT_OF_THE_BLOOD_GOD, true);
 
             events.Update(diff);
 
@@ -367,6 +396,8 @@ namespace
         uint8 _summonCountA = 0;
         uint8 _summonCountB = 0;
         bool _marking = false;
+        bool _drained = false;
+        LoaAvatar _avatar{ NPC_AVATAR_OF_BETHEKK, SPELL_DRAIN_POWER };
         ObjectGuid _sideA[5];
         ObjectGuid _sideB[5];
         ObjectGuid _target;

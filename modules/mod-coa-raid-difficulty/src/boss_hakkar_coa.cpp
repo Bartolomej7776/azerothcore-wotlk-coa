@@ -25,7 +25,10 @@
  *   Sons of Hakkar     first 45s, every 60s   two join; where one dies its blood
  *                                             pools and poisons those inside
  *   Aspects            one for each High Priest still alive, +25% damage and
- *                      -10% damage taken each
+ *                      -10% damage taken each: at the pull he drains the Avatar
+ *                      of each living priest's loa (Drain Power, -99% damage
+ *                      taken while any of them lives) and gains its Aspect when
+ *                      it dies
  *   Fierce Blow        tank, first 6.7-17.3s, then every 6-10s
  *   Berserk            at 10 minutes
  *
@@ -35,6 +38,8 @@
  *     Hakkar: the siphon mechanic needs poisoned blood, and the data says it
  *     comes from a Son of Hakkar. Two per wave;
  *   - the Aspects are Ascension's buffs instead of the stock aspect spells;
+ *   - the avatars stand in a ring 10 yards around him (nothing in the data says
+ *     where; his Drain Power has no range limit);
  *   - Animate Blood and Rain of Blood are left out (the
  *     Orb of Corrupted Blood exists nowhere in the data).
  * The Heart is creature 92005, as in the log: the stock one (15069) despawns itself.
@@ -49,6 +54,8 @@
 #include "../../../src/server/scripts/EasternKingdoms/ZulGurub/zulgurub.h"
 #include "zg_coa_common.h"
 
+#include <algorithm>
+#include <array>
 #include <list>
 
 using namespace coa_zg;
@@ -84,6 +91,7 @@ namespace
         SPELL_WILL_RELEASED       = 2118636,
         SPELL_HEART_EXPOSED       = 2118650,
         SPELL_POOL_OF_POISONED_BLOOD = 2118675,
+        SPELL_DRAIN_POWER         = 2118700,
         SPELL_ASPECT_OF_HIREEK    = 2118701,
         SPELL_ASPECT_OF_HETHISS   = 2118702,
         SPELL_ASPECT_OF_SHADRA    = 2118703,
@@ -95,7 +103,12 @@ namespace
     {
         NPC_SON_OF_HAKKAR   = 11357,
         NPC_WORLD_TRIGGER   = 12999,
-        NPC_HEART_OF_HAKKAR = 92005
+        NPC_HEART_OF_HAKKAR = 92005,
+        NPC_AVATAR_OF_BETHEKK    = 666988,
+        NPC_AVATAR_OF_SHIRVALLAH = 666989,
+        NPC_AVATAR_OF_SHADRA     = 666990,
+        NPC_AVATAR_OF_HETHISS    = 666991,
+        NPC_AVATAR_OF_HIREEK     = 666992
     };
 
     enum Events
@@ -124,6 +137,14 @@ namespace
     constexpr float SCYTHE_ARC           = float(M_PI) / 2;
     constexpr float POOL_RADIUS          = 5.0f;
     constexpr uint8 SCYTHE_STACKS        = 10;
+    constexpr float AVATAR_RING          = 10.0f;
+
+    struct PriestLoa
+    {
+        uint32 priest;
+        uint32 aspect;
+        LoaAvatar avatar;
+    };
 
     struct boss_hakkar_coa : public BossAI
     {
@@ -152,8 +173,11 @@ namespace
         {
             _Reset();
             ApplyHakkarPowerStacks();
-            for (uint32 aspect : { SPELL_ASPECT_OF_HIREEK, SPELL_ASPECT_OF_HETHISS, SPELL_ASPECT_OF_SHADRA, SPELL_ASPECT_OF_SHIRVALLAH, SPELL_ASPECT_OF_BETHEKK })
-                me->RemoveAurasDueToSpell(aspect);
+            for (PriestLoa& loa : _loas)
+            {
+                loa.avatar.Despawn(me);
+                me->RemoveAurasDueToSpell(loa.aspect);
+            }
             _siphoning = false;
             _heartDamage = 0;
             _pools.clear();
@@ -165,16 +189,7 @@ namespace
             _JustEngagedWith();
             Talk(SAY_AGGRO);
 
-            // Ascension's aspects: one for each priest still standing.
-            std::pair<uint32, uint32> const aspects[] =
-            {
-                { DATA_JEKLIK, SPELL_ASPECT_OF_HIREEK }, { DATA_VENOXIS, SPELL_ASPECT_OF_HETHISS },
-                { DATA_MARLI, SPELL_ASPECT_OF_SHADRA }, { DATA_THEKAL, SPELL_ASPECT_OF_SHIRVALLAH },
-                { DATA_ARLOKK, SPELL_ASPECT_OF_BETHEKK }
-            };
-            for (auto const& [data, aspect] : aspects)
-                if (instance->GetBossState(data) != DONE)
-                    DoCastSelf(aspect, true);
+            DrainLivingPriestsLoas();
 
             events.ScheduleEvent(EVENT_BLOOD_SCYTHE, 10s);
             events.ScheduleEvent(EVENT_CORRUPTED_BLOOD, 25s);
@@ -185,8 +200,39 @@ namespace
             events.ScheduleEvent(EVENT_BERSERK, 10min);
         }
 
+        // Ascension's aspects: one for each priest still standing, taken from its avatar.
+        void DrainLivingPriestsLoas()
+        {
+            float angle = 0.0f;
+            for (PriestLoa& loa : _loas)
+            {
+                if (instance->GetBossState(loa.priest) == DONE)
+                    continue;
+                loa.avatar.Summon(me, me->GetNearPosition(AVATAR_RING, angle));
+                angle += 2 * float(M_PI) / _loas.size();
+                if (!loa.avatar.Drain(me))
+                    DoCastSelf(loa.aspect, true);
+            }
+        }
+
+        void TakeConsumedAspects()
+        {
+            bool consumed = false;
+            for (PriestLoa& loa : _loas)
+            {
+                if (!loa.avatar.Consumed(me, false))
+                    continue;
+                consumed = true;
+                DoCastSelf(loa.aspect, true);
+            }
+            if (consumed && std::none_of(_loas.begin(), _loas.end(), [](PriestLoa const& loa) { return loa.avatar.Draining(); }))
+                me->RemoveAurasDueToSpell(sSpellMgr->GetSpellIdForDifficulty(SPELL_DRAIN_POWER, me));
+        }
+
         void EnterEvadeMode(EvadeReason why) override
         {
+            for (PriestLoa& loa : _loas)
+                loa.avatar.Despawn(me);
             ClearWill();
             BossAI::EnterEvadeMode(why);
             Talk(SAY_EVADE);
@@ -194,6 +240,8 @@ namespace
 
         void JustDied(Unit* killer) override
         {
+            for (PriestLoa& loa : _loas)
+                loa.avatar.Despawn(me);
             ClearWill();
             BossAI::JustDied(killer);
         }
@@ -314,6 +362,8 @@ namespace
             if (!UpdateVictim() || !CheckInRoom())
                 return;
 
+            TakeConsumedAspects();
+
             events.Update(diff);
             _clock.Update(diff);
 
@@ -408,6 +458,14 @@ namespace
         }
 
     private:
+        std::array<PriestLoa, 5> _loas
+        {{
+            { DATA_JEKLIK, SPELL_ASPECT_OF_HIREEK, { NPC_AVATAR_OF_HIREEK, SPELL_DRAIN_POWER } },
+            { DATA_VENOXIS, SPELL_ASPECT_OF_HETHISS, { NPC_AVATAR_OF_HETHISS, SPELL_DRAIN_POWER } },
+            { DATA_MARLI, SPELL_ASPECT_OF_SHADRA, { NPC_AVATAR_OF_SHADRA, SPELL_DRAIN_POWER } },
+            { DATA_THEKAL, SPELL_ASPECT_OF_SHIRVALLAH, { NPC_AVATAR_OF_SHIRVALLAH, SPELL_DRAIN_POWER } },
+            { DATA_ARLOKK, SPELL_ASPECT_OF_BETHEKK, { NPC_AVATAR_OF_BETHEKK, SPELL_DRAIN_POWER } }
+        }};
         EventMap _clock;
         bool _siphoning = false;
         uint32 _heartDamage = 0;

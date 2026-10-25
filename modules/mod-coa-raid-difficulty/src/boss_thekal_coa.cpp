@@ -5,17 +5,23 @@
  * see raid-difficulty-werkzeug/zg-video-zeitplan.json. Disrupting Shout's repeat
  * and Fierce Blow follow the CoA combat log of 2026-08-02.
  *
- * From stock: the fight with Zealot Lor'Khan and Zealot Zath, his false death,
- * the zealots rising again unless all three fall within 10 seconds, and the
- * tiger phase at full health after. The zealots keep their stock scripts, with
- * the spells of the log.
+ * From stock: the fight with Zealot Lor'Khan and Zealot Zath. The zealots keep
+ * their stock scripts, with the spells of the log.
+ *
+ * Not from stock, after the CoA log of 2026-08-02: no false death, no zealots
+ * rising again and no tiger phase at full health. In the log Lor'Khan and Zath
+ * died and stayed dead, Thekal never fell to zero, and he went from about 46%
+ * into his tiger kit without being healed. As the other priests, at 50% he
+ * drains the Avatar of Shirvallah (see LoaAvatar), taking ~1% damage while it
+ * dies; then the Gift of the Blood God and his tiger form (Shredding Claws in
+ * the log 0.3 seconds before the avatar's death).
  *
  *   Troll form
  *     Mortal Cleave    first 4s,  every 13s   cone in front, -25% healing taken
  *     Disrupting Shout first 9s,  every 25.8s 20 yards, interrupts
  *     Bloodlust        first 16s, every 30s   himself or a zealot
  *
- *   Tiger form (his Aspect of Shirvallah)
+ *   Tiger form (his Aspect of Shirvallah), when the avatar dies
  *     Rending Swipe    first 4s,  every 14s   cone in front, bleeds (Rip)
  *     War Stomp        first 12s, every 40s   50 yards, knocks back
  *     Speed Slash      first 14s, every 40s   runs through the raid for 8s,
@@ -49,16 +55,14 @@ namespace
 {
     enum Says
     {
-        SAY_AGGRO  = 0,
-        SAY_DEATH  = 1,
-        EMOTE_DIES = 2
+        SAY_AGGRO = 0,
+        SAY_DEATH = 1
     };
 
     enum Spells
     {
         SPELL_SUMMONTIGERS               = 24183,
         SPELL_FRENZY                     = 8269,
-        SPELL_RESURRECTION_IMPACT_VISUAL = 24171,
 
         SPELL_MORTAL_CLEAVE        = 2118201,
         SPELL_MORTAL_CLEAVE_HIT    = 2118202,
@@ -66,7 +70,9 @@ namespace
         SPELL_BLOODLUST            = 2118204,
         SPELL_DISRUPTING_SHOUT     = 2118205,
         SPELL_DISRUPTING_SHOUT_HIT = 2118206,
+        SPELL_DRAIN_POWER          = 2118222,
         SPELL_ASPECT_OF_SHIRVALLAH = 2118223,
+        SPELL_GIFT_OF_THE_BLOOD_GOD = 2118224,
         SPELL_SHREDDING_CLAWS      = 2118225,
         SPELL_WAR_STOMP            = 2118227,
         SPELL_WAR_STOMP_HIT        = 2118228,
@@ -83,10 +89,7 @@ namespace
         SPELL_STORM_SHIELD_HIT     = 2118263,
     };
 
-    enum Actions
-    {
-        ACTION_RESSURRECT = 1
-    };
+    constexpr uint32 NPC_AVATAR_OF_SHIRVALLAH = 666989;
 
     constexpr uint32 GROUP_TROLL = 1;
     constexpr uint32 GROUP_TIGER = 2;
@@ -100,26 +103,17 @@ namespace
     {
         boss_thekal_coa(Creature* creature) : BossAI(creature, DATA_THEKAL) { }
 
-        void Initialize()
-        {
-            _wasDead = false;
-            _lorkhanDied = false;
-            _zathDied = false;
-            _tiger = false;
-        }
-
         void Reset() override
         {
             _Reset();
-            Initialize();
+            _drained = false;
+            _avatar.Despawn(me);
             scheduler.CancelAll();
-            me->SetStandState(UNIT_STAND_STATE_STAND);
-            me->SetReactState(REACT_AGGRESSIVE);
             me->RemoveAurasDueToSpell(SPELL_FRENZY);
+            me->RemoveAurasDueToSpell(SPELL_GIFT_OF_THE_BLOOD_GOD);
             me->RemoveAurasDueToSpell(SPELL_ASPECT_OF_SHIRVALLAH);
             me->RemoveAurasDueToSpell(SPELL_SHREDDING_CLAWS);
             me->RemoveAurasDueToSpell(SPELL_SPEED_SLASH);
-            me->RemoveUnitFlag(UNIT_FLAG_NOT_SELECTABLE);
             me->LoadEquipment(1, true);
 
             if (Creature* zealot = instance->GetCreature(DATA_LORKHAN))
@@ -131,6 +125,7 @@ namespace
         void JustDied(Unit* /*killer*/) override
         {
             _JustDied();
+            _avatar.Despawn(me);
             Talk(SAY_DEATH);
             if (Creature* zealot = instance->GetCreature(DATA_LORKHAN))
                 zealot->Kill(zealot, zealot);
@@ -141,6 +136,7 @@ namespace
         void JustEngagedWith(Unit* /*who*/) override
         {
             _JustEngagedWith();
+            _avatar.Summon(me);
             scheduler.CancelAll();
             ScheduleTroll();
         }
@@ -248,52 +244,35 @@ namespace
             }
         }
 
-        void SetData(uint32 /*type*/, uint32 data) override
+        void EnterEvadeMode(EvadeReason why) override
         {
-            UpdateZealotStatus(data, true);
-            CheckPhaseTransition();
-
-            scheduler.Schedule(10s, [this, data](TaskContext /*context*/)
-            {
-                if (!_lorkhanDied || !_zathDied || !_wasDead)
-                    ReviveZealot(data);
-            });
+            _avatar.Despawn(me);
+            BossAI::EnterEvadeMode(why);
         }
 
         void DamageTaken(Unit* attacker, uint32& damage, DamageEffectType type, SpellSchoolMask school) override
         {
-            if (!_tiger && damage >= me->GetHealth())
-            {
-                damage = me->GetHealth() - 1;
-                if (!_wasDead)
-                {
-                    me->SetUnitFlag(UNIT_FLAG_NOT_SELECTABLE);
-                    me->SetReactState(REACT_PASSIVE);
-                    me->SetStandState(UNIT_STAND_STATE_DEAD);
-                    me->AttackStop();
-                    me->InterruptNonMeleeSpells(false);
-                    scheduler.CancelGroup(GROUP_TROLL);
-                    DoResetThreatList();
-                    _wasDead = true;
-                    CheckPhaseTransition();
-                    Talk(EMOTE_DIES);
-                }
-            }
             BossAI::DamageTaken(attacker, damage, type, school);
+
+            if (_drained || !me->HealthBelowPctDamaged(50, damage))
+                return;
+
+            _drained = true;
+            if (!_avatar.Drain(me))
+                TakeTigerForm();
         }
 
-        void DoAction(int32 action) override
+        void TakeTigerForm()
         {
-            if (action == ACTION_RESSURRECT)
-            {
-                me->SetUInt32Value(UNIT_FIELD_BYTES_1, 0);
-                me->RemoveUnitFlag(UNIT_FLAG_NOT_SELECTABLE);
-                me->RestoreFaction();
-                me->SetReactState(REACT_AGGRESSIVE);
-                me->SetFullHealth();
-                _wasDead = false;
-                ScheduleTroll();
-            }
+            me->InterruptNonMeleeSpells(false);
+            scheduler.CancelGroup(GROUP_TROLL);
+            Talk(SAY_AGGRO);
+            DoCastSelf(SPELL_GIFT_OF_THE_BLOOD_GOD, true);
+            DoCastSelf(SPELL_ASPECT_OF_SHIRVALLAH, true);
+            DoCastSelf(SPELL_SHREDDING_CLAWS, true);
+            me->LoadEquipment(0, true);
+            DoResetThreatList();
+            ScheduleTiger();
         }
 
         void UpdateAI(uint32 diff) override
@@ -301,72 +280,18 @@ namespace
             if (!UpdateVictim())
                 return;
 
+            if (_avatar.Consumed(me))
+                TakeTigerForm();
+
             scheduler.Update(diff, [this]
             {
-                if (!_wasDead || _tiger)
-                    DoMeleeAttackIfReady();
+                DoMeleeAttackIfReady();
             });
         }
 
-        void ReviveZealot(uint32 zealotData)
-        {
-            if (Creature* zealot = instance->GetCreature(zealotData))
-            {
-                zealot->Respawn(true);
-                zealot->SetInCombatWithZone();
-                UpdateZealotStatus(zealotData, false);
-            }
-        }
-
-        void UpdateZealotStatus(uint32 data, bool dead)
-        {
-            if (data == DATA_LORKHAN)
-                _lorkhanDied = dead;
-            else if (data == DATA_ZATH)
-                _zathDied = dead;
-        }
-
-        void CheckPhaseTransition()
-        {
-            if (_wasDead && _lorkhanDied && _zathDied)
-            {
-                scheduler.CancelAll();
-                scheduler.Schedule(3s, [this](TaskContext /*context*/)
-                {
-                    me->SetStandState(UNIT_STAND_STATE_STAND);
-                    DoCastSelf(SPELL_RESURRECTION_IMPACT_VISUAL, true);
-                    scheduler.Schedule(50ms, [this](TaskContext /*context*/)
-                    {
-                        Talk(SAY_AGGRO);
-                    });
-                    scheduler.Schedule(6s, [this](TaskContext /*context*/)
-                    {
-                        _tiger = true;
-                        DoCastSelf(SPELL_ASPECT_OF_SHIRVALLAH, true);
-                        DoCastSelf(SPELL_SHREDDING_CLAWS, true);
-                        me->LoadEquipment(0, true);
-                        me->SetFullHealth();
-                        me->SetReactState(REACT_AGGRESSIVE);
-                        me->RemoveUnitFlag(UNIT_FLAG_NOT_SELECTABLE);
-                        ScheduleTiger();
-                    });
-                });
-            }
-            else
-            {
-                scheduler.Schedule(10s, [this](TaskContext /*context*/)
-                {
-                    if (!(_wasDead && _lorkhanDied && _zathDied))
-                        DoAction(ACTION_RESSURRECT);
-                });
-            }
-        }
-
     private:
-        bool _lorkhanDied = false;
-        bool _zathDied = false;
-        bool _wasDead = false;
-        bool _tiger = false;
+        bool _drained = false;
+        LoaAvatar _avatar{ NPC_AVATAR_OF_SHIRVALLAH, SPELL_DRAIN_POWER };
     };
 
     // Zath's Sinister Strike and Blind are dummies with a cast bar; the hit lands with the cast.
