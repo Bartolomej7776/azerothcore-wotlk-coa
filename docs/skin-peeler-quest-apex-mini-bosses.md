@@ -65,7 +65,7 @@ Each boss is a level 60 elite, shared open-world spawn with a one-hour respawn, 
 - The core sets `UNIT_FLAG2_MIRROR_IMAGE` for creatures with a loaded preset (`AscensionCompat.cpp`), so the client requests the paper-doll on visibility.
 - `type_flags = 134217728` belongs to the preset/NPC path.
 - `npcflag = 3` marks the units as gossip-capable questgivers. No `gossip_menu`, `gossip_menu_option`, `npc_text` or `creature_queststarter` rows are part of this pass; those belong to the contract content pass.
-- The final rows are supplied by `data/sql/updates/pending_db_world/rev_20261025_02_apex_huntmasters.sql`.
+- The final rows are supplied by `modules/mod-skinpeelerquest/sql/mod_skinpeelerquest_huntmasters.sql`.
 
 ### Stormfang technical reference
 

@@ -6,7 +6,7 @@ This document is the implementation manifest for the completed Stormfang encount
 
 - Runtime encounter: `modules/mod-skinpeelerquest`
 - Stormfang world data: `data/sql/updates/pending_db_world/rev_20261025_01_apex_stormfang.sql`
-- Huntmaster world data: `data/sql/updates/pending_db_world/rev_20261025_02_apex_huntmasters.sql`
+- Huntmaster world data: `modules/mod-skinpeelerquest/sql/mod_skinpeelerquest_huntmasters.sql`
 - Gameplay coverage: ten Stormfang scenarios under `apps/coa-gameplay-test/scenarios/`
 - Design and encounter contract: `docs/skin-peeler-quest-apex-mini-bosses.md`
 
@@ -17,7 +17,7 @@ This document is the implementation manifest for the completed Stormfang encount
 | `modules/mod-skinpeelerquest/src/SkinpeelerQuest.cpp` | 1–469 | Complete Stormfang encounter implementation |
 | `modules/mod-skinpeelerquest/CMakeLists.txt` | 1–9 | Module source registration |
 | `data/sql/updates/pending_db_world/rev_20261025_01_apex_stormfang.sql` | 1–87 | Stormfang templates, spawn, text, SmartAI, spell and visual rows |
-| `data/sql/updates/pending_db_world/rev_20261025_02_apex_huntmasters.sql` | 1–21 | Torvald Greyfeather and Zul'khar templates, models, presets and spawns |
+| `modules/mod-skinpeelerquest/sql/mod_skinpeelerquest_huntmasters.sql` | 1–21 | Torvald Greyfeather and Zul'khar templates, models, presets and spawns |
 | `docs/skin-peeler-quest-apex-mini-bosses.md` | 1–135 | Encounter design and technical reference |
 | `apps/coa-gameplay-test/scenarios/skinpeeler-stormfang-*.json` | 29–109 each | Gameplay regression scenarios |
 
