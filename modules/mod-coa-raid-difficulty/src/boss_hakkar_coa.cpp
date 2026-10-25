@@ -4,10 +4,11 @@
  * Kit: Ascension's block 2118600-2118705. Hakkar has no cast bars in the video,
  * so the timings come from the Bronzebeard player's DBM (berserk 10 min, first
  * Blood Siphon at 90s, Will of Hakkar at 45s) and from the Heart of Hakkar
- * appearing on screen every 80-90 seconds.
+ * appearing on screen every 80-90 seconds. Blood Siphon, Blood Scythe and
+ * Fierce Blow follow the CoA combat log of 2026-08-02.
  *
- *   Blood Siphon       first 90s, every 90s   20 seconds of draining everyone:
- *                                             Shadow damage every 2s, a stack of
+ *   Blood Siphon       first 59.5s,           20 seconds of draining everyone:
+ *                      every 79.5s            Shadow damage every 2s, a stack of
  *                                             Anemia (-1% healing), Hakkar heals
  *                                             for it. A player with poisoned
  *                                             blood hurts him instead. While he
@@ -20,11 +21,12 @@
  *                                             Pool of Corrupted Blood stays
  *   Will of Hakkar     first 45s, every 45s   a player feels it for 5s, then is
  *                                             his for 15s
- *   Blood Scythe       first 10s, every 12s   cone in front, -10% armour, stacks 10
+ *   Blood Scythe       first 10s, every 15s   cone in front, -10% armour, stacks 10
  *   Sons of Hakkar     first 45s, every 60s   two join; where one dies its blood
  *                                             pools and poisons those inside
  *   Aspects            one for each High Priest still alive, +25% damage and
  *                      -10% damage taken each
+ *   Fierce Blow        tank, first 6.7-17.3s, then every 6-10s
  *   Berserk            at 10 minutes
  *
  * Decided here, not in the data:
@@ -33,9 +35,9 @@
  *     Hakkar: the siphon mechanic needs poisoned blood, and the data says it
  *     comes from a Son of Hakkar. Two per wave;
  *   - the Aspects are Ascension's buffs instead of the stock aspect spells;
- *   - Blood Scythe's timer; Animate Blood and Rain of Blood are left out (the
+ *   - Animate Blood and Rain of Blood are left out (the
  *     Orb of Corrupted Blood exists nowhere in the data).
- * The Heart is a new creature, 9780022: the stock one (15069) despawns itself.
+ * The Heart is creature 92005, as in the log: the stock one (15069) despawns itself.
  */
 
 #include "CreatureScript.h"
@@ -93,7 +95,7 @@ namespace
     {
         NPC_SON_OF_HAKKAR   = 11357,
         NPC_WORLD_TRIGGER   = 12999,
-        NPC_HEART_OF_HAKKAR = 9780022
+        NPC_HEART_OF_HAKKAR = 92005
     };
 
     enum Events
@@ -108,6 +110,7 @@ namespace
         EVENT_BLOOD_SCYTHE,
         EVENT_SONS,
         EVENT_BERSERK,
+        EVENT_FIERCE_BLOW,
     };
 
     enum Actions
@@ -177,7 +180,8 @@ namespace
             events.ScheduleEvent(EVENT_CORRUPTED_BLOOD, 25s);
             events.ScheduleEvent(EVENT_WILL_OF_HAKKAR, 45s);
             events.ScheduleEvent(EVENT_SONS, 45s);
-            events.ScheduleEvent(EVENT_BLOOD_SIPHON, 90s);
+            events.ScheduleEvent(EVENT_BLOOD_SIPHON, 59500ms);
+            events.ScheduleEvent(EVENT_FIERCE_BLOW, FIERCE_BLOW_FIRST_MIN, FIERCE_BLOW_FIRST_MAX);
             events.ScheduleEvent(EVENT_BERSERK, 10min);
         }
 
@@ -338,7 +342,7 @@ namespace
                 {
                     case EVENT_BLOOD_SIPHON:
                         DoCastSelf(SPELL_BLOOD_SIPHON);
-                        events.ScheduleEvent(EVENT_BLOOD_SIPHON, 90s);
+                        events.ScheduleEvent(EVENT_BLOOD_SIPHON, 79500ms);
                         break;
                     case EVENT_CORRUPTED_BLOOD:
                         DoCastSelf(SPELL_CORRUPTED_BLOOD, true);
@@ -374,7 +378,7 @@ namespace
                         break;
                     case EVENT_BLOOD_SCYTHE:
                         DoCastVictim(SPELL_BLOOD_SCYTHE);
-                        events.ScheduleEvent(EVENT_BLOOD_SCYTHE, 12s);
+                        events.ScheduleEvent(EVENT_BLOOD_SCYTHE, 15s);
                         break;
                     case EVENT_SONS:
                         for (uint8 i = 0; i < 2; ++i)
@@ -387,6 +391,10 @@ namespace
                         break;
                     case EVENT_BERSERK:
                         DoCastSelf(SPELL_BERSERK, true);
+                        break;
+                    case EVENT_FIERCE_BLOW:
+                        DoCastVictim(SPELL_FIERCE_BLOW);
+                        events.Repeat(FIERCE_BLOW_MIN, FIERCE_BLOW_MAX);
                         break;
                     default:
                         break;

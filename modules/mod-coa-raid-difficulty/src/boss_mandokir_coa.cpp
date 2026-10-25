@@ -3,21 +3,25 @@
  *
  * Kit: Ascension's block 2118400-2118428. Timings: a Bronzebeard kill on video,
  * see raid-difficulty-werkzeug/zg-video-zeitplan.json. The Berserker Charge is
- * the cleanest timer in the whole video: 25.1s, 22 times in a row.
+ * the cleanest timer in the whole video: 25.1s, 22 times in a row. Mortal
+ * Strike's repeat and Fierce Blow follow the CoA combat log of 2026-08-02.
  *
  * From stock: the start when the Vilebranch Speaker dies, the ride down, Ohgan
  * at his side, the chained spirits that revive the dead, and the gaze. Ohgan,
- * the spirits and the speaker keep their stock scripts.
+ * the spirits and the speaker keep their stock scripts, with the spells of the
+ * log.
  *
  *   Berserker Charge  first 10s, every 25s   the nearest player he can see,
  *                                            knocked down; the tank loses his
  *                                            threat, as in stock
  *   Whirlwind         1.5s and 8s after each charge, 6 yards around him
- *   Mortal Strike     first 8s,  every 10s   the tank, -25% healing, stacks 3
+ *   Mortal Strike     first 8s,  every 12s   the tank, -25% healing, stacks 3
  *   Threatening Gaze  first 15s, every 20s   he stares at a player for 4s;
  *                                            whoever gains threat meanwhile
  *                                            is Decapitated
  *   Execute           the tank below 20%, every 7-14s
+ *   Fierce Blow       first 30.7-31.6s, every 22.5-44s   the tank; later and
+ *                                            rarer than on the other bosses
  *   Level Up!         +4% damage for every player who dies near him
  *   Frenzy            when Ohgan dies
  *
@@ -33,6 +37,8 @@
 #include "CreatureScript.h"
 #include "InstanceScript.h"
 #include "ScriptedCreature.h"
+#include "SpellScript.h"
+#include "SpellScriptLoader.h"
 #include "../../../src/server/scripts/EasternKingdoms/ZulGurub/zulgurub.h"
 #include "zg_coa_common.h"
 
@@ -72,6 +78,8 @@ namespace
         SPELL_LEGENDARY         = 2118421,
         SPELL_THREATENING_GAZE  = 2118422,
         SPELL_FRENZY            = 2106613,
+
+        SPELL_REVIVE            = 24341,
     };
 
     enum Events
@@ -85,6 +93,7 @@ namespace
         EVENT_GAZE_END,
         EVENT_EXECUTE,
         EVENT_CHECK_OHGAN,
+        EVENT_FIERCE_BLOW,
     };
 
     enum Misc
@@ -96,6 +105,10 @@ namespace
     };
 
     constexpr uint8 MORTAL_WOUND_STACKS = 3;
+    constexpr Milliseconds MANDOKIR_FIERCE_BLOW_FIRST_MIN = 30700ms;
+    constexpr Milliseconds MANDOKIR_FIERCE_BLOW_FIRST_MAX = 31600ms;
+    constexpr Milliseconds MANDOKIR_FIERCE_BLOW_MIN = 22500ms;
+    constexpr Milliseconds MANDOKIR_FIERCE_BLOW_MAX = 44s;
 
     Position const PosSummonChainedSpirits[CHAINED_SPIRIT_COUNT] =
     {
@@ -192,6 +205,7 @@ namespace
             events.ScheduleEvent(EVENT_CHARGE, 10s);
             events.ScheduleEvent(EVENT_GAZE, 15s);
             events.ScheduleEvent(EVENT_CHECK_OHGAN, 1s);
+            events.ScheduleEvent(EVENT_FIERCE_BLOW, MANDOKIR_FIERCE_BLOW_FIRST_MIN, MANDOKIR_FIERCE_BLOW_FIRST_MAX);
 
             me->SetHomePosition(me->GetPositionX(), me->GetPositionY(), me->GetPositionZ(), me->GetOrientation());
             Talk(SAY_AGGRO);
@@ -359,7 +373,7 @@ namespace
                         break;
                     case EVENT_MORTAL_STRIKE:
                         DoCastVictim(SPELL_MORTAL_STRIKE);
-                        events.ScheduleEvent(EVENT_MORTAL_STRIKE, 10s);
+                        events.ScheduleEvent(EVENT_MORTAL_STRIKE, 12s);
                         break;
                     case EVENT_GAZE:
                         if (Unit* player = SelectTarget(SelectTargetMethod::Random, 0, 100.0f, true))
@@ -394,6 +408,10 @@ namespace
                         else
                             events.ScheduleEvent(EVENT_CHECK_OHGAN, 1s);
                         break;
+                    case EVENT_FIERCE_BLOW:
+                        DoCastVictim(SPELL_FIERCE_BLOW);
+                        events.ScheduleEvent(EVENT_FIERCE_BLOW, MANDOKIR_FIERCE_BLOW_MIN, MANDOKIR_FIERCE_BLOW_MAX);
+                        break;
                     default:
                         break;
                 }
@@ -412,9 +430,29 @@ namespace
         float _gazeThreat = 0.0f;
         ObjectGuid _reviveGUID;
     };
+
+    // The Chained Spirit's Resurrection is a dummy with a cast bar; the player stands up when it finishes.
+    class spell_mandokir_coa_resurrection : public SpellScript
+    {
+        PrepareSpellScript(spell_mandokir_coa_resurrection);
+
+        void HandleDummy(SpellEffIndex /*effIndex*/)
+        {
+            if (Player* target = GetHitPlayer())
+                if (!target->IsAlive())
+                    GetCaster()->CastSpell(target, SPELL_REVIVE, true);
+        }
+
+        void Register() override
+        {
+            OnEffectHitTarget += SpellEffectFn(spell_mandokir_coa_resurrection::HandleDummy, EFFECT_0,
+                SPELL_EFFECT_DUMMY);
+        }
+    };
 }
 
 void AddCoaMandokirScripts()
 {
     RegisterZulGurubCreatureAI(boss_mandokir_coa);
+    RegisterSpellScript(spell_mandokir_coa_resurrection);
 }

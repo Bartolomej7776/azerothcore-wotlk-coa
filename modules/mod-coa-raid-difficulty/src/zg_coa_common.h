@@ -29,6 +29,14 @@
 
 namespace coa_zg
 {
+    // Fierce Blow, cast on the tank by the bosses and adds of the CoA log of 2026-08-02 (not by Gri'lek; Mandokir
+    // has his own window). First cast: min-max of six bosses' first casts; repeat: the 6-10s window of Molten Core.
+    constexpr uint32 SPELL_FIERCE_BLOW = 975011;
+    constexpr Milliseconds FIERCE_BLOW_FIRST_MIN = 6700ms;
+    constexpr Milliseconds FIERCE_BLOW_FIRST_MAX = 17300ms;
+    constexpr Milliseconds FIERCE_BLOW_MIN = 6000ms;
+    constexpr Milliseconds FIERCE_BLOW_MAX = 10000ms;
+
     // Alive, visible players on the boss's map that pass the test.
     inline std::vector<Player*> Players(Creature* me, std::function<bool(Player*)> const& accept)
     {

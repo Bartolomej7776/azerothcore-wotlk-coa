@@ -2,7 +2,8 @@
  * High Priestess Arlokk with Ascension's spells.
  *
  * Kit: Ascension's block 2118300-2118340. Timings: a Bronzebeard kill on video,
- * see raid-difficulty-werkzeug/zg-video-zeitplan.json.
+ * see raid-difficulty-werkzeug/zg-video-zeitplan.json. Claw Storm's repeat and
+ * Fierce Blow follow the CoA combat log of 2026-08-02.
  *
  * From stock: the prowlers streaming in from both sides, her vanish after 30
  * seconds, the panther phase and the return to troll form, the gong and the
@@ -16,13 +17,16 @@
  *     Kidney Shot        first 15s, every 30s   the tank, 4s stun
  *
  *   Panther form (her Aspect of Bethekk)
- *     Claw Storm         first 5s,  every 20s   spins for 8s, 5 yards around her
+ *     Claw Storm         first 5s,  every 55s   spins for 8s, 5 yards around her
  *     Ravage             first 10s, every 15s   the tank, pinned and mauled
  *     Shadowstep         first 12s, every 15s   behind a random player
  *     Razor Claws        passive, her hits bleed
  *
+ *   Both forms
+ *     Fierce Blow        first 6.7-17.3s, every 6-10s   on the tank
+ *
  * Decided here, not in the data:
- *   - Claw Storm, Ravage and Shadowstep timers (each appears once or twice in
+ *   - Claw Storm's first cast, Ravage and Shadowstep timers (each appears once or twice in
  *     the video); Kidney Shot's first cast;
  *   - the mark lasts until it is removed and does not stack; prowlers within
  *     40 yards of the marked player turn on them every 2 seconds.
@@ -83,6 +87,7 @@ namespace
         EVENT_RAVAGE,
         EVENT_SHADOWSTEP,
         EVENT_TRANSFORM_BACK,
+        EVENT_FIERCE_BLOW,
     };
 
     enum Phases
@@ -133,6 +138,7 @@ namespace
             ScheduleTroll(2s);
             events.ScheduleEvent(EVENT_SUMMON_PROWLERS, 6s, 0, PHASE_ALL);
             events.ScheduleEvent(EVENT_MARK_OF_ARLOKK, 10s, 0, PHASE_ALL);
+            events.ScheduleEvent(EVENT_FIERCE_BLOW, FIERCE_BLOW_FIRST_MIN, FIERCE_BLOW_FIRST_MAX, 0, PHASE_ALL);
 
             // The panther spawners, split by side as in stock.
             std::list<Creature*> triggers;
@@ -319,7 +325,7 @@ namespace
                         break;
                     case EVENT_CLAW_STORM:
                         DoCastSelf(SPELL_CLAW_STORM);
-                        events.ScheduleEvent(EVENT_CLAW_STORM, 20s, 0, PHASE_TWO);
+                        events.ScheduleEvent(EVENT_CLAW_STORM, 55s, 0, PHASE_TWO);
                         break;
                     case EVENT_RAVAGE:
                         DoCastVictim(SPELL_RAVAGE, true);
@@ -341,6 +347,10 @@ namespace
                         me->SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID + 1, WEAPON_DAGGER);
                         events.SetPhase(PHASE_ONE);
                         ScheduleTroll(4s);
+                        break;
+                    case EVENT_FIERCE_BLOW:
+                        DoCastVictim(SPELL_FIERCE_BLOW);
+                        events.Repeat(FIERCE_BLOW_MIN, FIERCE_BLOW_MAX);
                         break;
                     default:
                         break;

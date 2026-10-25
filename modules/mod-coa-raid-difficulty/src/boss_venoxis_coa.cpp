@@ -3,12 +3,13 @@
  *
  * Kit: Ascension's block 2118000-2118087. Timings: a Bronzebeard kill on video
  * (Ascension's mechanics, read off his cast bar at 10 frames a second), see
- * raid-difficulty-werkzeug/zg-video-zeitplan.json.
+ * raid-difficulty-werkzeug/zg-video-zeitplan.json. Holy Nova, Renew and Fierce Blow
+ * repeat as in the CoA combat log of 2026-08-02.
  *
  *   Troll form
- *     Holy Nova     first 7s,  every 18s   15 yards around him; heals him and
+ *     Holy Nova     first 7s,  every 17s   15 yards around him; heals him and
  *                                          his cobras for 6% of his health
- *     Renew         first 16s, every 24s   on himself, 2% of his health every 3s
+ *     Renew         first 16s, every 28s   on himself, 2% of his health every 3s
  *     Holy Wrath    first 18s, every 15s   on the tank, arcs on
  *     Holy Fire     first 22s, every 10s   random player, hit and burn
  *
@@ -21,6 +22,9 @@
  *     Corpse Explosion    first 17s, every 40s   every snake corpse nearby
  *                                                bursts and leaves acid
  *     Poisonous Fangs     passive, his hits apply Virulent Poison
+ *
+ *   Both forms
+ *     Fierce Blow   tank, first 6.7-17.3s, then every 6-10s
  *
  * Decided here, not in the data:
  *   - Holy Wrath jumps up to 4 times, 10 yards each, +50% per jump minus 2%
@@ -97,6 +101,7 @@ namespace
         EVENT_PARASITIC_POISON,
         EVENT_VENOM_SPIT,
         EVENT_CORPSE_EXPLOSION,
+        EVENT_FIERCE_BLOW,
     };
 
     enum Phases
@@ -135,6 +140,7 @@ namespace
             events.ScheduleEvent(EVENT_RENEW, 16s, 0, PHASE_TROLL);
             events.ScheduleEvent(EVENT_HOLY_WRATH, 18s, 0, PHASE_TROLL);
             events.ScheduleEvent(EVENT_HOLY_FIRE, 22s, 0, PHASE_TROLL);
+            events.ScheduleEvent(EVENT_FIERCE_BLOW, FIERCE_BLOW_FIRST_MIN, FIERCE_BLOW_FIRST_MAX);
         }
 
         void JustDied(Unit* killer) override
@@ -299,13 +305,13 @@ namespace
                         break;
                     case EVENT_HOLY_NOVA:
                         DoCastSelf(SPELL_HOLY_NOVA);
-                        events.ScheduleEvent(EVENT_HOLY_NOVA, 18s, 0, PHASE_TROLL);
+                        events.ScheduleEvent(EVENT_HOLY_NOVA, 17s, 0, PHASE_TROLL);
                         break;
                     case EVENT_RENEW:
                     {
                         int32 heal = int32(me->CountPctFromMaxHealth(2));
                         me->CastCustomSpell(me, SPELL_RENEW, &heal, nullptr, nullptr, false);
-                        events.ScheduleEvent(EVENT_RENEW, 24s, 0, PHASE_TROLL);
+                        events.ScheduleEvent(EVENT_RENEW, 28s, 0, PHASE_TROLL);
                         break;
                     }
                     case EVENT_HOLY_WRATH:

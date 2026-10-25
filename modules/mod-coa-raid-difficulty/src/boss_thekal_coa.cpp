@@ -2,15 +2,17 @@
  * High Priest Thekal with Ascension's spells.
  *
  * Kit: Ascension's block 2118200-2118243. Timings: a Bronzebeard kill on video,
- * see raid-difficulty-werkzeug/zg-video-zeitplan.json.
+ * see raid-difficulty-werkzeug/zg-video-zeitplan.json. Disrupting Shout's repeat
+ * and Fierce Blow follow the CoA combat log of 2026-08-02.
  *
  * From stock: the fight with Zealot Lor'Khan and Zealot Zath, his false death,
  * the zealots rising again unless all three fall within 10 seconds, and the
- * tiger phase at full health after. The zealots keep their stock scripts.
+ * tiger phase at full health after. The zealots keep their stock scripts, with
+ * the spells of the log.
  *
  *   Troll form
  *     Mortal Cleave    first 4s,  every 13s   cone in front, -25% healing taken
- *     Disrupting Shout first 9s,  every 20s   20 yards, interrupts
+ *     Disrupting Shout first 9s,  every 25.8s 20 yards, interrupts
  *     Bloodlust        first 16s, every 30s   himself or a zealot
  *
  *   Tiger form (his Aspect of Shirvallah)
@@ -20,6 +22,9 @@
  *                                             cutting everyone he passes
  *     Shredding Claws  passive, armour down on hit
  *     Summon Tigers, frenzy every 30s and enrage at 20% from stock
+ *
+ *   Both forms
+ *     Fierce Blow      first 6.7-17.3s, every 6-10s   on the tank
  *
  * Decided here, not in the data:
  *   - which spells belong to which form. The video shows all of them in one
@@ -32,6 +37,9 @@
 #include "CreatureScript.h"
 #include "InstanceScript.h"
 #include "ScriptedCreature.h"
+#include "SpellAuraEffects.h"
+#include "SpellScript.h"
+#include "SpellScriptLoader.h"
 #include "../../../src/server/scripts/EasternKingdoms/ZulGurub/zulgurub.h"
 #include "zg_coa_common.h"
 
@@ -66,6 +74,13 @@ namespace
         SPELL_RENDING_SWIPE        = 2118238,
         SPELL_RENDING_SWIPE_HIT    = 2118239,
         SPELL_RIP                  = 2118240,
+
+        SPELL_SINISTER_STRIKE      = 2118250,
+        SPELL_SINISTER_STRIKE_HIT  = 2118251,
+        SPELL_BLIND                = 2118252,
+        SPELL_BLIND_HIT            = 2118253,
+        SPELL_STORM_SHIELD_AURA    = 2118262,
+        SPELL_STORM_SHIELD_HIT     = 2118263,
     };
 
     enum Actions
@@ -74,9 +89,12 @@ namespace
     };
 
     constexpr uint32 GROUP_TROLL = 1;
+    constexpr uint32 GROUP_TIGER = 2;
 
     constexpr float CLEAVE_RANGE = 10.0f;
     constexpr float CLEAVE_ARC   = float(M_PI) / 2;
+
+    constexpr uint8 STORM_SHIELD_CHARGES = 20;
 
     struct boss_thekal_coa : public BossAI
     {
@@ -136,11 +154,21 @@ namespace
             }).Schedule(9s, GROUP_TROLL, [this](TaskContext context)
             {
                 DoCastSelf(SPELL_DISRUPTING_SHOUT);
-                context.Repeat(20s);
+                context.Repeat(25800ms);
             }).Schedule(16s, GROUP_TROLL, [this](TaskContext context)
             {
                 Bloodlust();
                 context.Repeat(30s);
+            });
+            ScheduleFierceBlow(GROUP_TROLL);
+        }
+
+        void ScheduleFierceBlow(uint32 group)
+        {
+            scheduler.Schedule(FIERCE_BLOW_FIRST_MIN, FIERCE_BLOW_FIRST_MAX, group, [this](TaskContext context)
+            {
+                DoCastVictim(SPELL_FIERCE_BLOW);
+                context.Repeat(FIERCE_BLOW_MIN, FIERCE_BLOW_MAX);
             });
         }
 
@@ -171,6 +199,7 @@ namespace
                 DoCastVictim(SPELL_SUMMONTIGERS, true);
                 context.Repeat(10s, 14s);
             });
+            ScheduleFierceBlow(GROUP_TIGER);
             ScheduleHealthCheckEvent(20, [this]
             {
                 DoCastSelf(SPELL_FRENZY);
@@ -339,9 +368,78 @@ namespace
         bool _wasDead = false;
         bool _tiger = false;
     };
+
+    // Zath's Sinister Strike and Blind are dummies with a cast bar; the hit lands with the cast.
+    class spell_thekal_coa_zath_strike : public SpellScript
+    {
+        PrepareSpellScript(spell_thekal_coa_zath_strike);
+
+        void HandleDummy(SpellEffIndex /*effIndex*/)
+        {
+            uint32 const hit = GetSpellInfo()->Id == SPELL_BLIND ? SPELL_BLIND_HIT : SPELL_SINISTER_STRIKE_HIT;
+            if (Unit* target = GetHitUnit())
+                GetCaster()->CastSpell(target, hit, true);
+        }
+
+        void Register() override
+        {
+            OnEffectHitTarget += SpellEffectFn(spell_thekal_coa_zath_strike::HandleDummy, EFFECT_0, SPELL_EFFECT_DUMMY);
+        }
+    };
+
+    // Lor'Khan's Storm Shield puts 20 charges of lightning on its target, as in the log.
+    class spell_thekal_coa_storm_shield : public SpellScript
+    {
+        PrepareSpellScript(spell_thekal_coa_storm_shield);
+
+        void HandleDummy(SpellEffIndex /*effIndex*/)
+        {
+            Unit* target = GetHitUnit();
+            if (!target)
+                return;
+            GetCaster()->CastSpell(target, SPELL_STORM_SHIELD_AURA, true);
+            if (Aura* shield = target->GetAura(SPELL_STORM_SHIELD_AURA, GetCaster()->GetGUID()))
+                shield->SetStackAmount(STORM_SHIELD_CHARGES);
+        }
+
+        void Register() override
+        {
+            OnEffectHitTarget += SpellEffectFn(spell_thekal_coa_storm_shield::HandleDummy, EFFECT_0, SPELL_EFFECT_DUMMY);
+        }
+    };
+
+    // Each harmful spell on the shielded zealot costs a charge and strikes the attacker with lightning.
+    class spell_thekal_coa_storm_shield_charge : public AuraScript
+    {
+        PrepareAuraScript(spell_thekal_coa_storm_shield_charge);
+
+        bool CheckProc(ProcEventInfo& eventInfo)
+        {
+            Unit* attacker = eventInfo.GetActor();
+            return attacker && attacker != GetTarget() && attacker->IsAlive()
+                && GetTarget()->IsValidAttackTarget(attacker);
+        }
+
+        void HandleProc(AuraEffect const* /*aurEff*/, ProcEventInfo& eventInfo)
+        {
+            PreventDefaultAction();
+            GetTarget()->CastSpell(eventInfo.GetActor(), SPELL_STORM_SHIELD_HIT, true);
+            ModStackAmount(-1);
+        }
+
+        void Register() override
+        {
+            DoCheckProc += AuraCheckProcFn(spell_thekal_coa_storm_shield_charge::CheckProc);
+            OnEffectProc += AuraEffectProcFn(spell_thekal_coa_storm_shield_charge::HandleProc, EFFECT_0,
+                SPELL_AURA_DUMMY);
+        }
+    };
 }
 
 void AddCoaThekalScripts()
 {
     RegisterZulGurubCreatureAI(boss_thekal_coa);
+    RegisterSpellScript(spell_thekal_coa_zath_strike);
+    RegisterSpellScript(spell_thekal_coa_storm_shield);
+    RegisterSpellScript(spell_thekal_coa_storm_shield_charge);
 }

@@ -4,15 +4,16 @@
  * Kit: Ascension's block 2106100-2106143. Timings: a Bronzebeard kill on video,
  * see raid-difficulty-werkzeug/zg-video-zeitplan.json. On Ascension the phases
  * run the other way round from stock: she fights as a troll first and takes
- * bat form at 50% (in the video at 50%, 147s into the fight).
+ * bat form at 50% (in the video at 50%, 147s into the fight). Mass Fear, Greater
+ * Heal, Call of Hir'eek and Fierce Blow follow the CoA combat log of 2026-08-02.
  *
  *   Troll form, from landing
  *     Mind Flay         first 4s,  every 14s   on the tank, interruptible
- *     Mass Fear         first 12s, every 48s   everyone within 20 yards
+ *     Mass Fear         first 12s, every 44s   everyone within 20 yards
  *     Shadow Word: Pain first 15s, every 27s   random player
  *     Curse of Blood    first 16s, every 31s   random player and those near
- *     Call of Hir'eek   first 20s              six Bloodseeker Bats
- *     Greater Heal      first 29s, every 46s   20% of her health, interruptible
+ *     Call of Hir'eek   first 22s              six Bloodseeker Bats
+ *     Greater Heal      first 21s, every 46s   20% of her health, interruptible
  *
  *   Bat form, at 50%
  *     Bat-tering Charge  first 2s, every 20s   random player, knocks back
@@ -20,6 +21,9 @@
  *     Terrifying Screech first 4s, every 20s   everyone in the room
  *     Vampirism          passive, her hits drain life
  *     Bat Riders         two, from stock, throwing liquid fire
+ *
+ *   Both forms
+ *     Fierce Blow        tank, first 6.7-17.3s, then every 6-10s
  *
  * Decided here, not in the data:
  *   - Call of Hir'eek every 60s (the video shows it once);
@@ -90,6 +94,7 @@ namespace
         EVENT_BATTERING_CHARGE,
         EVENT_SCREECH,
         EVENT_BAT_RIDER,
+        EVENT_FIERCE_BLOW,
     };
 
     enum Phases
@@ -157,8 +162,9 @@ namespace
             events.ScheduleEvent(EVENT_MASS_FEAR, 12s, 0, PHASE_TROLL);
             events.ScheduleEvent(EVENT_SHADOW_WORD_PAIN, 15s, 0, PHASE_TROLL);
             events.ScheduleEvent(EVENT_CURSE_OF_BLOOD, 16s, 0, PHASE_TROLL);
-            events.ScheduleEvent(EVENT_CALL_OF_HIREEK, 20s, 0, PHASE_TROLL);
-            events.ScheduleEvent(EVENT_GREATER_HEAL, 29s, 0, PHASE_TROLL);
+            events.ScheduleEvent(EVENT_CALL_OF_HIREEK, 22s, 0, PHASE_TROLL);
+            events.ScheduleEvent(EVENT_GREATER_HEAL, 21s, 0, PHASE_TROLL);
+            events.ScheduleEvent(EVENT_FIERCE_BLOW, FIERCE_BLOW_FIRST_MIN, FIERCE_BLOW_FIRST_MAX);
         }
 
         void EnterEvadeMode(EvadeReason why) override
@@ -278,7 +284,7 @@ namespace
                         break;
                     case EVENT_MASS_FEAR:
                         DoCastSelf(SPELL_MASS_FEAR);
-                        events.ScheduleEvent(EVENT_MASS_FEAR, 48s, 0, PHASE_TROLL);
+                        events.ScheduleEvent(EVENT_MASS_FEAR, 44s, 0, PHASE_TROLL);
                         break;
                     case EVENT_SHADOW_WORD_PAIN:
                         CastOnRandom(SPELL_SHADOW_WORD_PAIN);
