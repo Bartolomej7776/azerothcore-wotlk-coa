@@ -15,8 +15,8 @@ This document is the implementation manifest for the completed Stormfang encount
 | --- | ---: | --- |
 | `modules/mod-skinpeelerquest/src/SkinpeelerQuest.cpp` | 1–469 | Complete encounter implementation |
 | `modules/mod-skinpeelerquest/CMakeLists.txt` | 1–9 | Module source registration |
-| `data/sql/updates/pending_db_world/rev_20261025_01_apex_stormfang.sql` | 1–88 | Canonical templates, spawn, text, SmartAI, spell and visual rows |
-| `docs/skin-peeler-quest-apex-mini-bosses.md` | 1–69 | Encounter design and technical reference |
+| `data/sql/updates/pending_db_world/rev_20261025_01_apex_stormfang.sql` | 1–87 | Canonical templates, spawn, text, SmartAI, spell and visual rows |
+| `docs/skin-peeler-quest-apex-mini-bosses.md` | 1–68 | Encounter design and technical reference |
 | `apps/coa-gameplay-test/scenarios/skinpeeler-stormfang-*.json` | 29–109 each | Gameplay regression scenarios |
 
 ### `SkinpeelerQuest.cpp` line index
