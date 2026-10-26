@@ -400,6 +400,7 @@ void Group::RemoveInvite(Player* player)
     player->SetGroupInvite(nullptr);
 }
 
+
 void Group::RemoveAllInvites()
 {
     for (InvitesList::iterator itr = m_invitees.begin(); itr != m_invitees.end(); ++itr)
