@@ -85,7 +85,8 @@ namespace MMAP
             return false;
         }
 
-        if (fileHeader.mmapVersion != MMAP_VERSION)
+        // coa-realm: tiles built by the v19 generator (before azerothcore #25720) keep loading until the v20 regeneration lands
+        if (fileHeader.mmapVersion != MMAP_VERSION && fileHeader.mmapVersion != 19)
         {
             LOG_ERROR("maps", "MMAP:loadMap: {:03}{:02}{:02}.mmtile was built with generator v{}, expected v{}",
                            mapId, x, y, fileHeader.mmapVersion, MMAP_VERSION);

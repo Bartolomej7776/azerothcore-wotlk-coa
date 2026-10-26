@@ -1,0 +1,65 @@
+# coa-realm: runtime images from a native build (install prefix copied into dist/), same layout as apps/docker/Dockerfile.
+ARG UBUNTU_VERSION=24.04
+FROM ubuntu:$UBUNTU_VERSION AS skeleton
+ARG TZ=Etc/UTC
+ARG DEBIAN_FRONTEND=noninteractive
+ENV AC_FORCE_CREATE_DB=1
+RUN mkdir -pv /azerothcore/bin /azerothcore/data /azerothcore/deps /azerothcore/env/dist/bin /azerothcore/env/dist/data/Cameras \
+        /azerothcore/env/dist/data/dbc /azerothcore/env/dist/data/maps /azerothcore/env/dist/data/mmaps /azerothcore/env/dist/data/vmaps \
+        /azerothcore/env/dist/logs /azerothcore/env/dist/temp /azerothcore/env/dist/etc /azerothcore/modules /azerothcore/src /azerothcore/build
+RUN apt-get update && apt-get install -y --no-install-recommends tzdata ca-certificates \
+    && ln -snf "/usr/share/zoneinfo/$TZ" /etc/localtime && echo "$TZ" > /etc/timezone \
+    && dpkg-reconfigure --frontend noninteractive tzdata && rm -rf /var/lib/apt/lists/*
+WORKDIR /azerothcore
+
+FROM skeleton AS runtime
+ARG USER_ID=1000
+ARG GROUP_ID=1000
+ARG DOCKER_USER=acore
+ENV ACORE_COMPONENT=undefined
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      libmysqlclient21 libreadline8 libicu74 libncurses5-dev gettext-base default-mysql-client adduser \
+    && rm -rf /var/lib/apt/lists/*
+COPY dist/etc/ /azerothcore/env/ref/etc
+VOLUME /azerothcore/env/dist/etc
+ENV PATH="/azerothcore/env/dist/bin:$PATH"
+RUN userdel --remove ubuntu \
+  && addgroup --gid "$GROUP_ID" "$DOCKER_USER" \
+  && adduser --disabled-password --gecos '' --uid "$USER_ID" --gid "$GROUP_ID" "$DOCKER_USER" \
+  && passwd -d "$DOCKER_USER" && chown -R "$DOCKER_USER:$DOCKER_USER" /azerothcore
+COPY --chown=$USER_ID:$GROUP_ID --chmod=755 apps/docker/entrypoint.sh /azerothcore/entrypoint.sh
+USER $DOCKER_USER
+ENTRYPOINT ["/usr/bin/env", "bash", "/azerothcore/entrypoint.sh"]
+
+FROM runtime AS authserver
+ENV ACORE_COMPONENT=authserver
+ENV AC_UPDATES_ENABLE_DATABASES=0
+ENV AC_DISABLE_INTERACTIVE=1
+ENV AC_CLOSE_IDLE_CONNECTIONS=0
+COPY --chown=$DOCKER_USER:$DOCKER_USER dist/bin/authserver /azerothcore/env/dist/bin/authserver
+CMD ["authserver"]
+
+FROM runtime AS worldserver
+ENV ACORE_COMPONENT=worldserver
+ENV AC_UPDATES_ENABLE_DATABASES=0
+ENV AC_DISABLE_INTERACTIVE=1
+ENV AC_CLOSE_IDLE_CONNECTIONS=0
+COPY --chown=$DOCKER_USER:$DOCKER_USER dist/bin/worldserver /azerothcore/env/dist/bin/worldserver
+VOLUME /azerothcore/env/dist/etc
+CMD ["worldserver"]
+
+FROM runtime AS db-import
+USER $DOCKER_USER
+ENV ACORE_COMPONENT=dbimport
+COPY --chown=$DOCKER_USER:$DOCKER_USER data data
+COPY --chown=$DOCKER_USER:$DOCKER_USER modules modules
+COPY --chown=$DOCKER_USER:$DOCKER_USER dist/bin/dbimport /azerothcore/env/dist/bin/dbimport
+CMD [ "/azerothcore/env/dist/bin/dbimport" ]
+
+FROM runtime AS tools
+WORKDIR /azerothcore/env/dist/
+RUN mkdir -pv /azerothcore/env/dist/Cameras /azerothcore/env/dist/dbc /azerothcore/env/dist/maps /azerothcore/env/dist/mmaps /azerothcore/env/dist/vmaps
+COPY --chown=$DOCKER_USER:$DOCKER_USER dist/bin/mmaps_generator /azerothcore/env/dist/bin/mmaps_generator
+COPY --chown=$DOCKER_USER:$DOCKER_USER dist/bin/map_extractor /azerothcore/env/dist/bin/map_extractor
+COPY --chown=$DOCKER_USER:$DOCKER_USER dist/bin/vmap4_assembler /azerothcore/env/dist/bin/vmap4_assembler
+COPY --chown=$DOCKER_USER:$DOCKER_USER dist/bin/vmap4_extractor /azerothcore/env/dist/bin/vmap4_extractor
